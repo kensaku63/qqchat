@@ -1,4 +1,5 @@
 import { openDb, insertMessages, insertMessage, ensureChannel, generateId, type Message } from "./db";
+
 import { readConfig, readSyncCursor, writeSyncCursor } from "./config";
 
 export async function sync(chatDir: string): Promise<{ newMessages: number; newChannels: number }> {
@@ -38,7 +39,7 @@ export async function sync(chatDir: string): Promise<{ newMessages: number; newC
   return { newMessages: inserted.length, newChannels };
 }
 
-export async function sendToUpstream(chatDir: string, channel: string, author: string, authorType: "human" | "agent", content: string, replyTo?: string): Promise<Message> {
+export async function sendToUpstream(chatDir: string, channel: string, author: string, content: string, replyTo?: string): Promise<Message> {
   const config = readConfig(chatDir);
 
   if (config.upstream) {
@@ -46,13 +47,7 @@ export async function sendToUpstream(chatDir: string, channel: string, author: s
     const res = await fetch(`${config.upstream}/api/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        channel,
-        author,
-        author_type: authorType,
-        content,
-        reply_to: replyTo,
-      }),
+      body: JSON.stringify({ channel, author, content, reply_to: replyTo }),
     });
     if (!res.ok) throw new Error(`Send failed: ${res.status} ${res.statusText}`);
 
@@ -72,11 +67,8 @@ export async function sendToUpstream(chatDir: string, channel: string, author: s
       id: generateId(),
       channel,
       author,
-      author_type: authorType,
       content,
       reply_to: replyTo ?? null,
-      agent_context: null,
-      ts: new Date().toISOString(),
     };
 
     const db = openDb(chatDir);

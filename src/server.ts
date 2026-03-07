@@ -53,36 +53,30 @@ export function startServer(chatDir: string, port: number) {
         return Response.json({ ok: true }, { headers });
       }
 
-      // GET /api/sync?since=<iso>
+      // GET /api/sync?since=<last_message_id>
       if (path === "/api/sync" && req.method === "GET") {
         const since = url.searchParams.get("since");
         const messages = since ? getMessagesSince(db, since) : getAllMessages(db);
         const channels = getChannels(db);
-        const cursor = new Date().toISOString();
+        const cursor = messages.length > 0 ? messages[messages.length - 1]!.id : (since || "");
         return Response.json({ messages, channels, cursor }, { headers });
       }
 
       // POST /api/messages
       if (path === "/api/messages" && req.method === "POST") {
-        let body: { channel: string; author: string; author_type: "human" | "agent"; content: string; reply_to?: string; agent_context?: string };
+        let body: { channel: string; author: string; content: string; reply_to?: string };
         try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
 
         if (!body.channel || !body.author || !body.content) {
           return Response.json({ error: "channel, author, content are required" }, { status: 400, headers });
-        }
-        if (body.author_type && body.author_type !== "human" && body.author_type !== "agent") {
-          return Response.json({ error: "author_type must be 'human' or 'agent'" }, { status: 400, headers });
         }
 
         const msg: Message = {
           id: generateId(),
           channel: body.channel,
           author: body.author,
-          author_type: body.author_type || "human",
           content: body.content,
           reply_to: body.reply_to ?? null,
-          agent_context: body.agent_context ?? null,
-          ts: new Date().toISOString(),
         };
 
         ensureChannel(db, msg.channel);

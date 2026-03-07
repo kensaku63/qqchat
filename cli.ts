@@ -3,7 +3,7 @@ import { resolve, join, basename } from "node:path";
 import { mkdirSync, existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
-import { openDb, createChannel, getChannels, queryMessages } from "./src/db";
+import { openDb, createChannel, getChannels, queryMessages, idToTime } from "./src/db";
 import { sync, sendToUpstream } from "./src/sync";
 import { startServer } from "./src/server";
 
@@ -36,13 +36,16 @@ function parseSince(since: string): string {
     const num = match[1]!;
     const unit = match[2]!;
     const ms: Record<string, number> = { m: 60_000, h: 3_600_000, d: 86_400_000 };
-    return new Date(Date.now() - parseInt(num) * ms[unit]!).toISOString();
+    return (Date.now() - parseInt(num) * ms[unit]!).toString(36);
   }
+  // ISO timestamp → base36 for ID comparison
+  const parsed = Date.parse(since);
+  if (!isNaN(parsed)) return parsed.toString(36);
   return since;
 }
 
-function formatTime(ts: string): string {
-  const d = new Date(ts);
+function formatTime(id: string): string {
+  const d = new Date(idToTime(id));
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   const hh = String(d.getHours()).padStart(2, "0");
@@ -182,13 +185,11 @@ async function cmdSend(args: string[]) {
     await sync(chatDir);
   }
 
-  const isAgent = !!flags.agent;
-  const author = isAgent ? `agent@${config.identity}` : config.identity;
-  const authorType = isAgent ? "agent" as const : "human" as const;
+  const author = flags.agent ? `agent@${config.identity}` : config.identity;
 
-  const msg = await sendToUpstream(chatDir, channel, author, authorType, content, flags["reply-to"] as string);
+  const msg = await sendToUpstream(chatDir, channel, author, content, flags["reply-to"] as string);
 
-  console.log(`[${formatTime(msg.ts)}] ${msg.author}: ${msg.content}`);
+  console.log(`[${formatTime(msg.id)}] ${msg.author}: ${msg.content}`);
 }
 
 async function cmdRead(args: string[]) {
@@ -235,10 +236,9 @@ async function cmdRead(args: string[]) {
 
   console.log(`#${channel}`);
   for (const msg of msgs) {
-    const time = formatTime(msg.ts);
-    const agentTag = msg.author_type === "agent" ? " (agent)" : "";
+    const time = formatTime(msg.id);
     const replyTag = msg.reply_to ? ` [reply:${msg.reply_to.slice(-6)}]` : "";
-    console.log(`[${time}] ${msg.author}${agentTag}${replyTag}: ${msg.content}`);
+    console.log(`[${time}] ${msg.author}${replyTag}: ${msg.content}`);
   }
 }
 

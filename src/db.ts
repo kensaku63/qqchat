@@ -12,27 +12,20 @@ CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
   channel TEXT NOT NULL,
   author TEXT NOT NULL,
-  author_type TEXT NOT NULL CHECK(author_type IN ('human', 'agent')),
   content TEXT NOT NULL,
   reply_to TEXT,
-  agent_context TEXT,
-  ts TEXT NOT NULL,
   FOREIGN KEY (channel) REFERENCES channels(name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_channel_ts ON messages(channel, ts);
-CREATE INDEX IF NOT EXISTS idx_messages_ts ON messages(ts);
+CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel, id);
 `;
 
 export interface Message {
   id: string;
   channel: string;
   author: string;
-  author_type: "human" | "agent";
   content: string;
   reply_to?: string | null;
-  agent_context?: string | null;
-  ts: string;
 }
 
 export function openDb(chatDir: string): Database {
@@ -43,25 +36,29 @@ export function openDb(chatDir: string): Database {
 }
 
 export function generateId(): string {
-  return `msg_${crypto.randomUUID()}`;
+  return `${Date.now().toString(36)}_${crypto.getRandomValues(new Uint32Array(1))[0]!.toString(36)}`;
+}
+
+export function idToTime(id: string): number {
+  return parseInt(id.split("_")[0]!, 36);
 }
 
 export function insertMessage(db: Database, msg: Message): boolean {
   const r = db.run(
-    `INSERT OR IGNORE INTO messages (id, channel, author, author_type, content, reply_to, agent_context, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [msg.id, msg.channel, msg.author, msg.author_type, msg.content, msg.reply_to ?? null, msg.agent_context ?? null, msg.ts]
+    `INSERT OR IGNORE INTO messages (id, channel, author, content, reply_to) VALUES (?, ?, ?, ?, ?)`,
+    [msg.id, msg.channel, msg.author, msg.content, msg.reply_to ?? null]
   );
   return r.changes > 0;
 }
 
 export function insertMessages(db: Database, msgs: Message[]): Message[] {
   const stmt = db.prepare(
-    `INSERT OR IGNORE INTO messages (id, channel, author, author_type, content, reply_to, agent_context, ts) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO messages (id, channel, author, content, reply_to) VALUES (?, ?, ?, ?, ?)`
   );
   const inserted: Message[] = [];
   db.transaction(() => {
     for (const msg of msgs) {
-      const r = stmt.run(msg.id, msg.channel, msg.author, msg.author_type, msg.content, msg.reply_to ?? null, msg.agent_context ?? null, msg.ts);
+      const r = stmt.run(msg.id, msg.channel, msg.author, msg.content, msg.reply_to ?? null);
       if (r.changes > 0) inserted.push(msg);
     }
   })();
@@ -73,7 +70,7 @@ export function queryMessages(db: Database, channel: string, opts: { last?: numb
   const params: any[] = [channel];
 
   if (opts.since) {
-    conds.push("ts > ?");
+    conds.push("id > ?");
     params.push(opts.since);
   }
   if (opts.search) {
@@ -85,21 +82,21 @@ export function queryMessages(db: Database, channel: string, opts: { last?: numb
 
   if (opts.last) {
     return db.prepare(
-      `SELECT * FROM (SELECT * FROM messages WHERE ${where} ORDER BY ts DESC LIMIT ?) ORDER BY ts ASC`
+      `SELECT * FROM (SELECT * FROM messages WHERE ${where} ORDER BY id DESC LIMIT ?) ORDER BY id ASC`
     ).all(...params, opts.last) as Message[];
   }
 
   return db.prepare(
-    `SELECT * FROM messages WHERE ${where} ORDER BY ts ASC`
+    `SELECT * FROM messages WHERE ${where} ORDER BY id ASC`
   ).all(...params) as Message[];
 }
 
-export function getMessagesSince(db: Database, since: string): Message[] {
-  return db.prepare("SELECT * FROM messages WHERE ts > ? ORDER BY ts ASC").all(since) as Message[];
+export function getMessagesSince(db: Database, sinceId: string): Message[] {
+  return db.prepare("SELECT * FROM messages WHERE id > ? ORDER BY id ASC").all(sinceId) as Message[];
 }
 
 export function getAllMessages(db: Database): Message[] {
-  return db.prepare("SELECT * FROM messages ORDER BY ts ASC").all() as Message[];
+  return db.prepare("SELECT * FROM messages ORDER BY id ASC").all() as Message[];
 }
 
 export function getChannels(db: Database): { name: string; description: string; created_at: string }[] {
