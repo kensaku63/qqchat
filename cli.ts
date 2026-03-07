@@ -4,7 +4,7 @@ import { mkdirSync, existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
 import { openDb, createChannel, getChannels, queryMessages, idToTime } from "./src/db";
-import { sync, sendToUpstream, connectRealtime } from "./src/sync";
+import { sync, sendToUpstream } from "./src/sync";
 import { startServer, startTunnel, startStandbyMode, syncFromBackups } from "./src/server";
 
 // --- Arg parsing ---
@@ -158,7 +158,8 @@ async function cmdServe(args: string[]) {
     startServer(chatDir, port);
   }
 
-  if (flags.tunnel) {
+  const useTunnel = !flags["no-tunnel"];
+  if (useTunnel) {
     console.log("\nStarting tunnel...");
     const tunnelUrl = await startTunnel(port);
     console.log(`\n  Public: ${tunnelUrl}`);
@@ -394,7 +395,8 @@ Usage: chat <command> [args]
 Commands:
   init [name]                     Create a new chat (you become the owner)
   join <url>                      Join an existing chat
-  serve [--port N]                Start server (owner only)
+  serve [--port N]                Start server with public URL (owner only)
+    --no-tunnel                   Skip tunnel (local only)
     --standby                     Monitor primary; auto-takeover if it goes down
   sync                            Pull latest from upstream
 

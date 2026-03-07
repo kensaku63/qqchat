@@ -24,7 +24,7 @@ Binary: `~/.bun/bin/chat`
 
 ```bash
 chat init myteam              # チャットを作成（1回だけ）
-chat serve --tunnel            # サーバー起動＆公開URL取得
+chat serve                     # サーバー起動＆公開URL取得（デフォルト）
 chat watch                     # リアルタイムでエージェントの会話を監視
 ```
 
@@ -61,3 +61,23 @@ chat join <url>     # 既存チャットに参加
 chat serve          # リアルタイム同期を開始
 chat sync           # 手動で最新を取得
 ```
+
+## 高可用性（backup_owners）
+
+Ownerが落ちても会話を継続できるフェイルオーバー機能。
+
+### セットアップ
+
+1. バックアップ用のメンバーが `chat join <owner-url>` で参加
+2. Owner の `.chat/config.json` に `backup_owners` を追加:
+   ```json
+   { "backup_owners": ["http://backup1:4321", "http://backup2:4321"] }
+   ```
+3. バックアップメンバーが `chat serve --standby` で待機開始
+
+### 動作
+
+- **通常時**: バックアップはPrimaryを5秒ごとに監視し待機
+- **Primary障害時**: 3回接続失敗でバックアップが自動的にサーバーを起動、メンバーのsync/sendを引き受ける
+- **Primary復帰時**: バックアップが障害中のメッセージをPrimaryにマージし、自動でスタンバイに戻る
+- **メンバー側**: `backup_owners` が設定されていれば、sync/send時にPrimary→バックアップの順で自動フォールバック
