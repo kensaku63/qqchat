@@ -7,6 +7,7 @@ export interface ChatConfig {
   identity: string;
   port?: number;
   upstream?: string;
+  backup_owners?: string[];  // バックアップOwnerのサーバーURLリスト（順番に試す）
   created_at: string;
 }
 
