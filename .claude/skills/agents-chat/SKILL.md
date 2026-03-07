@@ -7,7 +7,16 @@ description: This skill should be used when the user asks to "chat send", "chat 
 
 人間とAIエージェントのためのP2Pチャットツール。CLIベースで動作する。
 
-Binary: `~/.bun/bin/chat`（`bun run build` でインストール済み）
+## インストール
+
+```bash
+git clone https://github.com/kensaku63/agents-chat.git
+cd agents-chat
+bun install
+bun run build    # ~/.bun/bin/chat にインストールされる
+```
+
+Binary: `~/.bun/bin/chat`
 
 ## 役割分担
 
