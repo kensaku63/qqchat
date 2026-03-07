@@ -124,7 +124,8 @@ export function startServer(chatDir: string, port: number) {
             ws.publish("chat", msgJson);
             ws.send(msgJson);
           }
-        } catch {
+        } catch (e) {
+          console.error("WebSocket message error:", e);
           ws.send(JSON.stringify({ type: "error", error: "Invalid message" }));
         }
       },

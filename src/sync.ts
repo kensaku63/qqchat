@@ -38,7 +38,7 @@ export async function sendToUpstream(chatDir: string, channel: string, author: s
   const config = readConfig(chatDir);
 
   if (config.upstream) {
-    // Member: send to owner's server
+    // Member: POST to owner
     const res = await fetch(`${config.upstream}/api/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,71 +55,19 @@ export async function sendToUpstream(chatDir: string, channel: string, author: s
         body: JSON.stringify({ channel, author, content, reply_to: replyTo }),
       });
       if (res.ok) return;
-    } catch {}
+    } catch {
+      // Local server not running, fall through to direct DB write
+    }
 
-    const msg: Message = {
+    const db = openDb(chatDir);
+    ensureChannel(db, channel);
+    insertMessage(db, {
       id: generateId(),
       channel,
       author,
       content,
       reply_to: replyTo ?? null,
-    };
-    const db = openDb(chatDir);
-    ensureChannel(db, channel);
-    insertMessage(db, msg);
+    });
     db.close();
   }
-}
-
-export function connectRealtime(chatDir: string): { close: () => void } {
-  const config = readConfig(chatDir);
-  if (!config.upstream) throw new Error("No upstream configured");
-
-  const db = openDb(chatDir);
-  const wsUrl = config.upstream.replace(/^http/, "ws") + "/ws";
-  let ws: WebSocket;
-  let closed = false;
-
-  function connect() {
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log("  Realtime: connected");
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string);
-        if (data.type === "msg") {
-          ensureChannel(db, data.channel);
-          insertMessage(db, {
-            id: data.id,
-            channel: data.channel,
-            author: data.author,
-            content: data.content,
-            reply_to: data.reply_to ?? null,
-          });
-          writeSyncCursor(chatDir, data.id);
-        }
-      } catch {}
-    };
-
-    ws.onclose = () => {
-      if (!closed) {
-        setTimeout(connect, 3000);
-      }
-    };
-
-    ws.onerror = () => {};
-  }
-
-  connect();
-
-  return {
-    close() {
-      closed = true;
-      ws?.close();
-      db.close();
-    },
-  };
 }
