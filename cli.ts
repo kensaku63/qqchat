@@ -4,7 +4,7 @@ import { mkdirSync, existsSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
 import { openDb, createChannel, getChannels, queryMessages, idToTime } from "./src/db";
-import { sync, sendToUpstream } from "./src/sync";
+import { sync, sendToUpstream, connectRealtime } from "./src/sync";
 import { startServer } from "./src/server";
 
 // --- Arg parsing ---
@@ -147,7 +147,17 @@ async function cmdServe(args: string[]) {
   const { flags } = parseArgs(args);
   const port = parseInt(flags.port as string) || config.port || 4321;
 
-  startServer(chatDir, port);
+  if (config.upstream) {
+    // Member: initial sync, then realtime WebSocket connection
+    const result = await sync(chatDir);
+    if (result.newMessages > 0 || result.newChannels > 0) {
+      console.log(`Synced: +${result.newMessages} messages, +${result.newChannels} channels`);
+    }
+    connectRealtime(chatDir);
+    console.log(`Listening for messages from ${config.upstream}`);
+  } else {
+    startServer(chatDir, port);
+  }
 }
 
 async function cmdSync() {
@@ -179,17 +189,10 @@ async function cmdSend(args: string[]) {
 
   const chatDir = requireChatDir();
   const config = readConfig(chatDir);
-
-  // Sync before sending (if member)
-  if (config.upstream) {
-    await sync(chatDir);
-  }
-
   const author = flags.agent ? `agent@${config.identity}` : config.identity;
 
-  const msg = await sendToUpstream(chatDir, channel, author, content, flags["reply-to"] as string);
-
-  console.log(`[${formatTime(msg.id)}] ${msg.author}: ${msg.content}`);
+  await sendToUpstream(chatDir, channel, author, content, flags["reply-to"] as string);
+  console.log("ok");
 }
 
 async function cmdRead(args: string[]) {
@@ -333,7 +336,7 @@ Usage: chat <command> [args]
 Commands:
   init [name]                     Create a new chat (you become the owner)
   join <url>                      Join an existing chat
-  serve [--port N]                Start sharing (owner only)
+  serve [--port N]                Start server (owner) / realtime listener (member)
   sync                            Pull latest from upstream
 
   send <channel> <message>        Send a message

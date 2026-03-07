@@ -18,11 +18,16 @@ export function startServer(chatDir: string, port: number) {
 
   const server = Bun.serve({
     port,
-    async fetch(req) {
+    async fetch(req, server) {
       const url = new URL(req.url);
       const path = url.pathname;
 
-      // CORS headers for flexibility
+      // WebSocket upgrade
+      if (path === "/ws") {
+        if (server.upgrade(req)) return;
+        return new Response("WebSocket upgrade failed", { status: 400 });
+      }
+
       const headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -82,10 +87,50 @@ export function startServer(chatDir: string, port: number) {
         ensureChannel(db, msg.channel);
         insertMessage(db, msg);
 
-        return Response.json({ ok: true, message: msg }, { headers });
+        // Broadcast to all WebSocket clients
+        server.publish("chat", JSON.stringify({ type: "msg", ...msg }));
+
+        return Response.json({ ok: true }, { headers });
       }
 
       return Response.json({ error: "Not Found" }, { status: 404, headers });
+    },
+    websocket: {
+      open(ws) {
+        ws.subscribe("chat");
+      },
+      message(ws, raw) {
+        try {
+          const data = JSON.parse(raw as string);
+          if (data.type === "send") {
+            const { channel, author, content, reply_to } = data;
+            if (!channel || !author || !content) {
+              ws.send(JSON.stringify({ type: "error", error: "channel, author, content required" }));
+              return;
+            }
+            const msg: Message = {
+              id: generateId(),
+              channel,
+              author,
+              content,
+              reply_to: reply_to ?? null,
+            };
+            ensureChannel(db, msg.channel);
+            insertMessage(db, msg);
+
+            ws.send(JSON.stringify({ type: "ack", ok: true }));
+            // Broadcast to all (publish sends to others, send to self)
+            const msgJson = JSON.stringify({ type: "msg", ...msg });
+            ws.publish("chat", msgJson);
+            ws.send(msgJson);
+          }
+        } catch {
+          ws.send(JSON.stringify({ type: "error", error: "Invalid message" }));
+        }
+      },
+      close(ws) {
+        ws.unsubscribe("chat");
+      },
     },
   });
 
