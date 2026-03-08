@@ -60,8 +60,7 @@ chat channels                                  # チャンネル一覧
 
 ```bash
 chat join <url>     # 既存チャットに参加
-chat serve          # リアルタイム同期を開始
-chat sync           # 手動で最新を取得
+chat sync           # 手動で最新を取得（unread時は自動sync）
 ```
 
 ## 高可用性（backup_owners）

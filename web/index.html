@@ -602,7 +602,7 @@
           fetchChannels();
         }
         if (data.type === 'members') {
-          state.members = data.members;
+          state.members = data.members.map(function(m) { return m.name; });
         }
         if (data.type === 'msg') {
           if (state.messages.some(function(m) { return m.id === data.id; })) return;
