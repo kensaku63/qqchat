@@ -2,7 +2,7 @@ import { openDb, insertMessages, insertMessage, ensureChannel, ensureMember, gen
 import { readConfig, readSyncCursor, writeSyncCursor, type ChatConfig } from "./config";
 
 // upstreamとbackup_ownersを順番に返す（重複除外）
-function getUpstreamUrls(config: ChatConfig): string[] {
+export function getUpstreamUrls(config: ChatConfig): string[] {
   const urls: string[] = [];
   if (config.upstream) urls.push(config.upstream);
   for (const url of config.backup_owners ?? []) {

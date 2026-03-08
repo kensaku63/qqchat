@@ -59,7 +59,8 @@ export function startServer(chatDir: string, port: number) {
 
       // GET /api/agents
       if (path === "/api/agents" && req.method === "GET") {
-        return Response.json({ agents: config.agents ?? [] }, { headers });
+        const freshConfig = readConfig(chatDir);
+        return Response.json({ agents: freshConfig.agents ?? [] }, { headers });
       }
 
       // GET /api/context

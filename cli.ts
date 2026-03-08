@@ -4,7 +4,7 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
 import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage } from "./src/db";
-import { sync, sendToUpstream } from "./src/sync";
+import { sync, sendToUpstream, getUpstreamUrls } from "./src/sync";
 import { readReadCursor, writeReadCursor } from "./src/config";
 import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, startStandbyMode, syncFromBackups } from "./src/server";
 
@@ -656,11 +656,12 @@ async function cmdAgent(args: string[]) {
     const config = readConfig(chatDir);
 
     let agents = config.agents || [];
-    if (config.upstream) {
+    const agentUrls = getUpstreamUrls(config);
+    for (const url of agentUrls) {
       try {
-        const res = await fetch(`${config.upstream}/api/agents`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) { agents = ((await res.json()) as any).agents || []; }
-      } catch {}
+        const res = await fetch(`${url}/api/agents`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) { agents = ((await res.json()) as any).agents || []; break; }
+      } catch { continue; }
     }
 
     if (flags.text) {
@@ -694,14 +695,17 @@ async function cmdContext() {
   const chatDir = requireChatDir();
   const config = readConfig(chatDir);
 
-  if (config.upstream) {
-    try {
-      const res = await fetch(`${config.upstream}/api/context`, { signal: AbortSignal.timeout(5000) });
-      if (res.ok) {
-        const data = (await res.json()) as { content: string | null };
-        if (data.content) { console.log(data.content); return; }
-      }
-    } catch {}
+  const contextUrls = getUpstreamUrls(config);
+  if (contextUrls.length > 0) {
+    for (const url of contextUrls) {
+      try {
+        const res = await fetch(`${url}/api/context`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = (await res.json()) as { content: string | null };
+          if (data.content) { console.log(data.content); return; }
+        }
+      } catch { continue; }
+    }
     console.error("Could not fetch CHAT.md from upstream.");
     process.exit(1);
   }
