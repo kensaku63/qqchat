@@ -398,6 +398,16 @@
       flex-shrink: 0;
     }
 
+    .ref-link {
+      color: var(--accent);
+      background: var(--accent-light);
+      border-radius: 3px;
+      padding: 0 3px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .ref-link:hover { text-decoration: underline; }
+
     .msg-actions { opacity: 0; transition: opacity 0.1s; margin-top: 2px; }
     .message:hover .msg-actions { opacity: 1; }
 
@@ -827,19 +837,30 @@
       headerChildren.push(el('span', { className: 'msg-time' }, [formatTime(msg.id)]));
       var header = el('div', { className: 'msg-header' }, headerChildren);
 
-      // Content（@メンションをハイライト）
+      // Content（@メンション + [ref:ID] をハイライト）
       var content = el('div', { className: 'msg-content' });
-      content.innerHTML = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(
+      var escaped = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // [ref:ID] → clickable link
+      escaped = escaped.replace(
+        /\[ref:([a-z0-9_]+)\]/g,
+        function(match, id) {
+          return '<span class="ref-link" data-ref="' + id + '">[ref:' + id.slice(-6) + ']</span>';
+        }
+      );
+      // @mention → highlight
+      escaped = escaped.replace(
         /@([\w\-\.]+)/g,
         function(match, name) {
           var isMe = name === state.identity || name === state.identity.replace('agent@', '');
           return '<span class="mention' + (isMe ? ' me' : '') + '">' + match + '</span>';
         }
       );
+      content.innerHTML = escaped;
 
       // Actions
       var replyBtn = el('button', { 'data-reply-btn': msg.id }, ['Reply']);
-      var actions = el('div', { className: 'msg-actions' }, [replyBtn]);
+      var linkBtn = el('button', { 'data-link-btn': msg.id }, ['Link']);
+      var actions = el('div', { className: 'msg-actions' }, [replyBtn, linkBtn]);
 
       // Body
       var bodyChildren = [];
@@ -920,6 +941,21 @@
       var replyBtn = e.target.closest('[data-reply-btn]');
       if (replyBtn) {
         startReply(replyBtn.getAttribute('data-reply-btn'));
+        return;
+      }
+      var linkBtn = e.target.closest('[data-link-btn]');
+      if (linkBtn) {
+        var id = linkBtn.getAttribute('data-link-btn');
+        var tag = '[ref:' + id + ']';
+        navigator.clipboard.writeText(tag).then(function() {
+          linkBtn.textContent = 'Copied!';
+          setTimeout(function() { linkBtn.textContent = 'Link'; }, 1500);
+        });
+        return;
+      }
+      var refLink = e.target.closest('[data-ref]');
+      if (refLink) {
+        scrollToMessage(refLink.getAttribute('data-ref'));
         return;
       }
       var replyRef = e.target.closest('[data-reply]');
