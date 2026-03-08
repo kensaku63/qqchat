@@ -194,7 +194,7 @@ export interface Task {
 
 export function getTasks(db: Database, statusFilter?: string): Task[] {
   const taskMsgs = db.prepare(
-    "SELECT * FROM messages WHERE json_extract(metadata, '$.task') IS NOT NULL ORDER BY id ASC"
+    "SELECT * FROM messages WHERE json_valid(metadata) AND json_extract(metadata, '$.task') IS NOT NULL ORDER BY id ASC"
   ).all() as Message[];
 
   const tasks: Task[] = [];
@@ -204,7 +204,7 @@ export function getTasks(db: Database, statusFilter?: string): Task[] {
       if (!meta.task?.name) continue;
 
       const latestUpdate = db.prepare(
-        "SELECT metadata FROM messages WHERE reply_to = ? AND json_extract(metadata, '$.task_update') IS NOT NULL ORDER BY id DESC LIMIT 1"
+        "SELECT metadata FROM messages WHERE reply_to = ? AND json_valid(metadata) AND json_extract(metadata, '$.task_update') IS NOT NULL ORDER BY id DESC LIMIT 1"
       ).get(msg.id) as { metadata: string } | null;
 
       let status = meta.task.status || "pending";
@@ -276,7 +276,7 @@ function toMemory(msg: Message): Memory | null {
 }
 
 export function getMemories(db: Database, opts: { agent?: string; tag?: string; search?: string; last?: number } = {}): Memory[] {
-  const conds = ["json_extract(metadata, '$.memory') IS NOT NULL"];
+  const conds = ["json_valid(metadata) AND json_extract(metadata, '$.memory') IS NOT NULL"];
   const params: any[] = [];
 
   if (opts.agent) {
@@ -336,7 +336,7 @@ function toSummary(msg: Message): Summary | null {
 }
 
 export function getSummaries(db: Database, channel?: string, last?: number): Summary[] {
-  const conds = ["json_extract(metadata, '$.summary') IS NOT NULL"];
+  const conds = ["json_valid(metadata) AND json_extract(metadata, '$.summary') IS NOT NULL"];
   const params: any[] = [];
 
   if (channel) {
