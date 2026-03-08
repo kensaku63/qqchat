@@ -84,6 +84,36 @@
 
     .channel-item::before { content: '# '; color: var(--text-muted); }
 
+    #identity-bar {
+      font-size: 11px;
+      padding: 10px 20px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #identity-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--sidebar-text);
+    }
+
+    #identity-change-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 3px;
+      color: var(--text-muted);
+      font-size: 10px;
+      padding: 2px 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #identity-change-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--sidebar-text); }
+
     #status-bar {
       font-size: 11px;
       padding: 10px 20px;
@@ -299,6 +329,11 @@
       </div>
       <div id="channels-header">Channels</div>
       <div id="channel-list"></div>
+      <div id="identity-bar">
+        <span>👤</span>
+        <span id="identity-label"></span>
+        <button id="identity-change-btn">変更</button>
+      </div>
       <div id="status-bar">
         <span class="status-dot connecting"></span>
         <span id="status-text">connecting...</span>
@@ -379,9 +414,19 @@
       var data = await res.json();
       state.chatName = data.name;
       state.owner = data.owner;
-      state.identity = data.owner;
+
+      // identity は localStorage から読み込む。なければ入力させる
+      var saved = localStorage.getItem('agents-chat-identity');
+      if (!saved) {
+        saved = prompt('あなたの名前を入力してください（チャットでの表示名）:') || '';
+        saved = saved.trim() || 'anonymous';
+        localStorage.setItem('agents-chat-identity', saved);
+      }
+      state.identity = saved;
+
       document.getElementById('chat-name').textContent = data.name;
       document.getElementById('chat-owner').textContent = 'owner: ' + data.owner;
+      document.getElementById('identity-label').textContent = saved;
     }
 
     async function fetchChannels() {
@@ -611,13 +656,24 @@
     document.getElementById('cancel-reply-btn').addEventListener('click', cancelReply);
 
     document.getElementById('message-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      // isComposing が true の間は IME 変換中なので Enter を無視する
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         sendMessage();
       }
     });
 
     document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+    document.getElementById('identity-change-btn').addEventListener('click', function() {
+      var current = state.identity;
+      var newName = prompt('新しい名前を入力してください:', current);
+      if (newName === null) return;  // キャンセル
+      newName = newName.trim() || current;
+      state.identity = newName;
+      localStorage.setItem('agents-chat-identity', newName);
+      document.getElementById('identity-label').textContent = newName;
+    });
 
     // --- Init ---
 
