@@ -3,7 +3,7 @@ import { resolve, join, basename } from "node:path";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
-import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage } from "./src/db";
+import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMemories, getSummaries } from "./src/db";
 import { sync, sendToUpstream, getUpstreamUrls } from "./src/sync";
 import { readReadCursor, writeReadCursor } from "./src/config";
 import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, startStandbyMode, syncFromBackups } from "./src/server";
@@ -695,10 +695,14 @@ async function cmdAgent(args: string[]) {
   }
 }
 
-async function cmdContext() {
+async function cmdContext(args: string[]) {
+  const { flags } = parseArgs(args);
   const chatDir = requireChatDir();
   const config = readConfig(chatDir);
+  const agentName = flags.agent as string | undefined;
 
+  // L1: CHAT.md
+  let chatMdContent = "";
   const contextUrls = getUpstreamUrls(config);
   if (contextUrls.length > 0) {
     for (const url of contextUrls) {
@@ -706,20 +710,248 @@ async function cmdContext() {
         const res = await fetch(`${url}/api/context`, { signal: AbortSignal.timeout(5000) });
         if (res.ok) {
           const data = (await res.json()) as { content: string | null };
-          if (data.content) { console.log(data.content); return; }
+          if (data.content) { chatMdContent = data.content; break; }
         }
       } catch { continue; }
     }
-    console.error("Could not fetch CHAT.md from upstream.");
-    process.exit(1);
+  } else {
+    const chatMdPath = join(resolve(chatDir, ".."), "CHAT.md");
+    if (existsSync(chatMdPath)) {
+      chatMdContent = readFileSync(chatMdPath, "utf-8");
+    }
   }
 
-  const chatMdPath = join(resolve(chatDir, ".."), "CHAT.md");
-  if (!existsSync(chatMdPath)) {
-    console.error("CHAT.md not found. Create it in your project root.");
+  if (!agentName) {
+    // Original behavior: just print CHAT.md
+    if (!chatMdContent) {
+      console.error("CHAT.md not found. Create it in your project root.");
+      process.exit(1);
+    }
+    console.log(chatMdContent);
+    return;
+  }
+
+  // Enhanced context for specific agent
+  const output: string[] = [];
+
+  // L1: CHAT.md
+  if (chatMdContent) {
+    output.push("## Project Context (CHAT.md)\n");
+    output.push(chatMdContent);
+  }
+
+  // L1: Agent registration info
+  let agents = config.agents || [];
+  for (const url of contextUrls) {
+    try {
+      const res = await fetch(`${url}/api/agents`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) { agents = ((await res.json()) as any).agents || []; break; }
+    } catch { continue; }
+  }
+  const agentInfo = agents.find(a => a.name === agentName);
+  if (!agentInfo) {
+    console.error(`Warning: Agent "${agentName}" is not registered. Use 'chat agent create ${agentName}' to register.`);
+  } else {
+    output.push("\n---\n## Agent Identity\n");
+    output.push(`- Name: ${agentInfo.name}`);
+    output.push(`- Role: ${agentInfo.role}`);
+    output.push(`- Channels: ${agentInfo.channels.join(", ")}`);
+  }
+
+  // L3: Agent memories
+  if (config.upstream) {
+    try { await sync(chatDir); } catch {}
+  }
+  const db = openDb(chatDir);
+  const memories = getMemories(db, { agent: agentName, last: 20 });
+  if (memories.length > 0) {
+    output.push("\n---\n## Agent Memory\n");
+    for (const mem of memories) {
+      const tags = mem.tags.length > 0 ? ` [${mem.tags.join(", ")}]` : "";
+      output.push(`- ${mem.content}${tags}`);
+    }
+  }
+
+  // L4: Channel summaries for assigned channels (only if agent is registered)
+  const assignedChannels = agentInfo?.channels || [];
+  const allSummaries = assignedChannels.length > 0 ? getSummaries(db) : [];
+  const channelSummaries = new Map<string, typeof allSummaries[0]>();
+  for (const s of allSummaries) {
+    if (assignedChannels.includes(s.channel)) {
+      channelSummaries.set(s.channel, s); // keep latest per channel
+    }
+  }
+  if (channelSummaries.size > 0) {
+    output.push("\n---\n## Channel Summaries\n");
+    for (const [ch, summary] of channelSummaries) {
+      const period = summary.period ? ` (${summary.period})` : "";
+      output.push(`### #${ch}${period}\n`);
+      output.push(summary.content);
+      output.push("");
+    }
+  }
+
+  db.close();
+
+  console.log(output.join("\n"));
+}
+
+async function cmdMemory(args: string[]) {
+  const sub = args[0];
+  const subArgs = args.slice(1);
+
+  if (sub === "add") {
+    const { positional, flags } = parseArgs(subArgs);
+    const content = positional.join(" ");
+    if (!content) {
+      console.error("Usage: chat memory add <content> --agent-name <name> [--tag <tag>]");
+      process.exit(1);
+    }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+    const agentName = flags["agent-name"] as string;
+    if (!agentName) {
+      console.error("Error: --agent-name is required for memory add");
+      process.exit(1);
+    }
+
+    const author = `agent:${agentName}@${config.identity}`;
+    const tags = flags.tag ? [(flags.tag as string)] : [];
+    const metadata = JSON.stringify({ memory: { tags } });
+
+    await sendToUpstream(chatDir, "_memory", author, content, undefined, metadata);
+    console.log("ok");
+
+  } else if (sub === "list") {
+    const { flags } = parseArgs(subArgs);
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+
+    if (config.upstream) {
+      try { await sync(chatDir); } catch {}
+    }
+
+    const db = openDb(chatDir);
+    const memories = getMemories(db, {
+      agent: flags.agent as string | undefined,
+      tag: flags.tag as string | undefined,
+      search: flags.search as string | undefined,
+      last: flags.last ? parseInt(flags.last as string) : undefined,
+    });
+    db.close();
+
+    if (flags.text) {
+      if (memories.length === 0) { console.log("No memories."); return; }
+      for (const mem of memories) {
+        const tags = mem.tags.length > 0 ? ` [${mem.tags.join(", ")}]` : "";
+        const time = formatTime(mem.id);
+        console.log(`  [${time}] ${mem.agent}: ${mem.content}${tags}  id:${mem.id}`);
+      }
+      return;
+    }
+    console.log(JSON.stringify(memories, null, 2));
+
+  } else {
+    console.error("Usage: chat memory <add|list>");
     process.exit(1);
   }
-  console.log(readFileSync(chatMdPath, "utf-8"));
+}
+
+async function cmdSummary(args: string[]) {
+  const sub = args[0];
+  const subArgs = args.slice(1);
+
+  if (sub === "create") {
+    const { positional, flags } = parseArgs(subArgs);
+    const channel = positional[0];
+    const content = positional.slice(1).join(" ");
+    if (!channel || !content) {
+      console.error("Usage: chat summary create <channel> <content> --agent-name <name> [--since <period>] [--count <N>]");
+      process.exit(1);
+    }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+    const agentName = flags["agent-name"] as string;
+    if (!agentName) {
+      console.error("Error: --agent-name is required for summary create");
+      process.exit(1);
+    }
+
+    const author = `agent:${agentName}@${config.identity}`;
+    const period = (flags.since as string) || "";
+    const messageCount = flags.count ? parseInt(flags.count as string) : 0;
+    const metadata = JSON.stringify({ summary: { channel, period, message_count: messageCount } });
+
+    await sendToUpstream(chatDir, "_summary", author, content, undefined, metadata);
+    console.log("ok");
+
+  } else if (sub === "list") {
+    const { positional, flags } = parseArgs(subArgs);
+    const channel = positional[0];
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+
+    if (config.upstream) {
+      try { await sync(chatDir); } catch {}
+    }
+
+    const db = openDb(chatDir);
+    const summaries = getSummaries(db, channel, flags.last ? parseInt(flags.last as string) : undefined);
+    db.close();
+
+    if (flags.text) {
+      if (summaries.length === 0) { console.log("No summaries."); return; }
+      for (const s of summaries) {
+        const time = formatTime(s.id);
+        const period = s.period ? ` (${s.period})` : "";
+        console.log(`  [${time}] #${s.channel}${period} by ${s.agent}:`);
+        console.log(`    ${s.content.split("\n").join("\n    ")}`);
+      }
+      return;
+    }
+    console.log(JSON.stringify(summaries, null, 2));
+
+  } else if (sub === "latest") {
+    const { positional, flags } = parseArgs(subArgs);
+    const channel = positional[0];
+    if (!channel) {
+      console.error("Usage: chat summary latest <channel>");
+      process.exit(1);
+    }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+
+    if (config.upstream) {
+      try { await sync(chatDir); } catch {}
+    }
+
+    const db = openDb(chatDir);
+    const summaries = getSummaries(db, channel, 1);
+    db.close();
+
+    if (summaries.length === 0) {
+      if (flags.text) { console.log(`No summaries for #${channel}.`); }
+      else { console.log("null"); }
+      return;
+    }
+
+    const s = summaries[0];
+    if (flags.text) {
+      const time = formatTime(s.id);
+      const period = s.period ? ` (${s.period})` : "";
+      console.log(`#${s.channel}${period} [${time}] by ${s.agent}:`);
+      console.log(s.content);
+      return;
+    }
+    console.log(JSON.stringify(s, null, 2));
+
+  } else {
+    console.error("Usage: chat summary <create|list|latest>");
+    process.exit(1);
+  }
 }
 
 // --- Help ---
@@ -778,6 +1010,26 @@ Commands:
   agent remove <name>             Remove an agent
 
   context                         Show CHAT.md (project context for agents)
+    --agent <name>                Enhanced context: CHAT.md + agent info + memories + summaries
+
+  memory add <content>            Save an agent memory
+    --agent-name <name>           Agent name (required)
+    --tag <tag>                   Tag for categorization (decision, context, pattern, etc.)
+  memory list                     List agent memories
+    --agent <name>                Filter by agent
+    --tag <tag>                   Filter by tag
+    --search <query>              Search memory content
+    --last N                      Last N memories
+    --text                        Output as human-readable text
+
+  summary create <ch> <content>   Save a channel summary
+    --agent-name <name>           Agent name (required)
+    --since <period>              Period covered (e.g. 24h, 7d)
+    --count <N>                   Number of messages summarized
+  summary list [channel]          List summaries
+    --last N                      Last N summaries
+    --text                        Output as human-readable text
+  summary latest <channel>        Show latest summary for a channel
 
   status                          Show chat info
 
@@ -803,7 +1055,9 @@ switch (cmd) {
   case "unread":         await cmdUnread(args); break;
   case "task":           await cmdTask(args); break;
   case "agent":          await cmdAgent(args); break;
-  case "context":        await cmdContext(); break;
+  case "context":        await cmdContext(args); break;
+  case "memory":         await cmdMemory(args); break;
+  case "summary":        await cmdSummary(args); break;
   case "status":         await cmdStatus(); break;
   case "help": case "--help": case "-h": case undefined:
     showHelp(); break;

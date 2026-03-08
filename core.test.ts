@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, afterEach, describe } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers, rebuildMembers, getTasks } from "./src/db";
+import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers, rebuildMembers, getTasks, getMemories, getSummaries } from "./src/db";
 import { writeConfig, readReadCursor, writeReadCursor } from "./src/config";
 
 function makeTmpChatDir(suffix: string): string {
@@ -384,5 +384,145 @@ describe("tasks", () => {
 
     // Only direct replies to root are tracked, so status should be "active" not "done"
     expect(tasks[0].status).toBe("active");
+  });
+});
+
+// -------------------------------------------------------------------
+describe("memories", () => {
+  let chatDir: string;
+
+  beforeEach(() => {
+    chatDir = makeTmpChatDir("memories");
+    const db = openDb(chatDir);
+    createChannel(db, "_memory", "Agent memories");
+
+    insertMessage(db, {
+      id: "mem_001", channel: "_memory", author: "agent:Opus@kensaku",
+      content: "kensakuはシンプルさ最優先",
+      metadata: JSON.stringify({ memory: { tags: ["decision"] } }),
+    });
+    insertMessage(db, {
+      id: "mem_002", channel: "_memory", author: "agent:Director@kensaku",
+      content: "PRはfeatureブランチ→マージの流れ",
+      metadata: JSON.stringify({ memory: { tags: ["decision", "workflow"] } }),
+    });
+    insertMessage(db, {
+      id: "mem_003", channel: "_memory", author: "agent:Opus@kensaku",
+      content: "Bunを使う。Node.jsは使わない",
+      metadata: JSON.stringify({ memory: { tags: ["context"] } }),
+    });
+    db.close();
+  });
+
+  afterEach(() => {
+    rmSync(join(chatDir, ".."), { recursive: true, force: true });
+  });
+
+  test("getMemories returns all memories", () => {
+    const db = openDb(chatDir);
+    const memories = getMemories(db);
+    db.close();
+
+    expect(memories.length).toBe(3);
+    expect(memories[0].content).toBe("kensakuはシンプルさ最優先");
+    expect(memories[0].agent).toBe("Opus");
+    expect(memories[0].tags).toEqual(["decision"]);
+  });
+
+  test("getMemories filters by agent", () => {
+    const db = openDb(chatDir);
+    const memories = getMemories(db, { agent: "Opus" });
+    db.close();
+
+    expect(memories.length).toBe(2);
+    expect(memories.every(m => m.agent === "Opus")).toBe(true);
+  });
+
+  test("getMemories filters by tag", () => {
+    const db = openDb(chatDir);
+    const memories = getMemories(db, { tag: "workflow" });
+    db.close();
+
+    expect(memories.length).toBe(1);
+    expect(memories[0].content).toContain("featureブランチ");
+  });
+
+  test("getMemories filters by search", () => {
+    const db = openDb(chatDir);
+    const memories = getMemories(db, { search: "Bun" });
+    db.close();
+
+    expect(memories.length).toBe(1);
+    expect(memories[0].content).toContain("Bunを使う");
+  });
+
+  test("getMemories limits results", () => {
+    const db = openDb(chatDir);
+    const memories = getMemories(db, { last: 1 });
+    db.close();
+
+    expect(memories.length).toBe(1);
+    expect(memories[0].content).toContain("Bunを使う"); // last one
+  });
+});
+
+// -------------------------------------------------------------------
+describe("summaries", () => {
+  let chatDir: string;
+
+  beforeEach(() => {
+    chatDir = makeTmpChatDir("summaries");
+    const db = openDb(chatDir);
+    createChannel(db, "_summary", "Channel summaries");
+
+    insertMessage(db, {
+      id: "sum_001", channel: "_summary", author: "agent:Director@kensaku",
+      content: "タスク管理機能がリリースされた。PRレビューフローが確立。",
+      metadata: JSON.stringify({ summary: { channel: "dev", period: "24h", message_count: 15 } }),
+    });
+    insertMessage(db, {
+      id: "sum_002", channel: "_summary", author: "agent:Director@kensaku",
+      content: "命名はQQchatに決定。X投稿を開始。",
+      metadata: JSON.stringify({ summary: { channel: "marketing", period: "12h", message_count: 8 } }),
+    });
+    insertMessage(db, {
+      id: "sum_003", channel: "_summary", author: "agent:Director@kensaku",
+      content: "エージェントメモリ機能の企画が承認された。",
+      metadata: JSON.stringify({ summary: { channel: "dev", period: "6h", message_count: 5 } }),
+    });
+    db.close();
+  });
+
+  afterEach(() => {
+    rmSync(join(chatDir, ".."), { recursive: true, force: true });
+  });
+
+  test("getSummaries returns all summaries", () => {
+    const db = openDb(chatDir);
+    const summaries = getSummaries(db);
+    db.close();
+
+    expect(summaries.length).toBe(3);
+    expect(summaries[0].channel).toBe("dev");
+    expect(summaries[0].period).toBe("24h");
+    expect(summaries[0].message_count).toBe(15);
+  });
+
+  test("getSummaries filters by channel", () => {
+    const db = openDb(chatDir);
+    const summaries = getSummaries(db, "dev");
+    db.close();
+
+    expect(summaries.length).toBe(2);
+    expect(summaries.every(s => s.channel === "dev")).toBe(true);
+  });
+
+  test("getSummaries limits results (latest)", () => {
+    const db = openDb(chatDir);
+    const summaries = getSummaries(db, "dev", 1);
+    db.close();
+
+    expect(summaries.length).toBe(1);
+    expect(summaries[0].content).toContain("エージェントメモリ");
   });
 });

@@ -248,3 +248,103 @@ export function getUnreadMessages(db: Database, sinceId: string, forName?: strin
   return db.prepare(`SELECT * FROM messages ${where} ORDER BY id ASC`).all(...params) as Message[];
 }
 
+// --- Memory ---
+
+export interface Memory {
+  id: string;
+  agent: string;
+  content: string;
+  tags: string[];
+  created_at: number;
+}
+
+function toMemory(msg: Message): Memory {
+  const meta = JSON.parse(msg.metadata!);
+  const { name } = parseAuthor(msg.author);
+  return {
+    id: msg.id,
+    agent: name,
+    content: msg.content,
+    tags: meta.memory?.tags || [],
+    created_at: idToTime(msg.id),
+  };
+}
+
+export function getMemories(db: Database, opts: { agent?: string; tag?: string; search?: string; last?: number } = {}): Memory[] {
+  const conds = ["json_extract(metadata, '$.memory') IS NOT NULL"];
+  const params: any[] = [];
+
+  if (opts.agent) {
+    conds.push("(author LIKE ? OR author = ?)");
+    params.push(`agent:${opts.agent}@%`, opts.agent);
+  }
+  if (opts.tag) {
+    conds.push("json_extract(metadata, '$.memory.tags') LIKE ?");
+    params.push(`%"${opts.tag}"%`);
+  }
+  if (opts.search) {
+    conds.push("content LIKE ?");
+    params.push(`%${opts.search}%`);
+  }
+
+  const where = conds.join(" AND ");
+
+  if (opts.last) {
+    return (db.prepare(
+      `SELECT * FROM (SELECT * FROM messages WHERE ${where} ORDER BY id DESC LIMIT ?) ORDER BY id ASC`
+    ).all(...params, opts.last) as Message[]).map(toMemory);
+  }
+
+  return (db.prepare(
+    `SELECT * FROM messages WHERE ${where} ORDER BY id ASC`
+  ).all(...params) as Message[]).map(toMemory);
+}
+
+// --- Summary ---
+
+export interface Summary {
+  id: string;
+  channel: string;
+  agent: string;
+  content: string;
+  period: string;
+  message_count: number;
+  created_at: number;
+}
+
+function toSummary(msg: Message): Summary {
+  const meta = JSON.parse(msg.metadata!);
+  const { name } = parseAuthor(msg.author);
+  return {
+    id: msg.id,
+    channel: meta.summary?.channel || "",
+    agent: name,
+    content: msg.content,
+    period: meta.summary?.period || "",
+    message_count: meta.summary?.message_count || 0,
+    created_at: idToTime(msg.id),
+  };
+}
+
+export function getSummaries(db: Database, channel?: string, last?: number): Summary[] {
+  const conds = ["json_extract(metadata, '$.summary') IS NOT NULL"];
+  const params: any[] = [];
+
+  if (channel) {
+    conds.push("json_extract(metadata, '$.summary.channel') = ?");
+    params.push(channel);
+  }
+
+  const where = conds.join(" AND ");
+
+  if (last) {
+    return (db.prepare(
+      `SELECT * FROM (SELECT * FROM messages WHERE ${where} ORDER BY id DESC LIMIT ?) ORDER BY id ASC`
+    ).all(...params, last) as Message[]).map(toSummary);
+  }
+
+  return (db.prepare(
+    `SELECT * FROM messages WHERE ${where} ORDER BY id ASC`
+  ).all(...params) as Message[]).map(toSummary);
+}
+
