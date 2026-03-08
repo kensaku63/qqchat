@@ -61,7 +61,22 @@
       letter-spacing: 0.05em;
       color: var(--text-muted);
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
+
+    #add-channel-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
+    #add-channel-btn:hover { color: var(--sidebar-text); }
 
     #channel-list { flex: 1; overflow-y: auto; }
 
@@ -327,7 +342,10 @@
         <div id="chat-name">Loading...</div>
         <div id="chat-owner"></div>
       </div>
-      <div id="channels-header">Channels</div>
+      <div id="channels-header">
+        <span>Channels</span>
+        <button id="add-channel-btn" title="チャンネルを追加">+</button>
+      </div>
       <div id="channel-list"></div>
       <div id="identity-bar">
         <span>👤</span>
@@ -664,6 +682,24 @@
     });
 
     document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+    document.getElementById('add-channel-btn').addEventListener('click', async function() {
+      var name = prompt('チャンネル名を入力してください:');
+      if (!name) return;
+      name = name.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!name) return;
+
+      var desc = prompt('説明（省略可）:') || '';
+
+      await fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, description: desc }),
+      });
+
+      await fetchChannels();
+      switchChannel(name);
+    });
 
     document.getElementById('identity-change-btn').addEventListener('click', function() {
       var current = state.identity;
