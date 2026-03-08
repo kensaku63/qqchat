@@ -1,6 +1,12 @@
 import { join, resolve } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
+export interface AgentInfo {
+  name: string;
+  role: string;
+  channels: string[];
+}
+
 export interface ChatConfig {
   role: "owner" | "member";
   name: string;
@@ -10,6 +16,7 @@ export interface ChatConfig {
   backup_owners?: string[];  // バックアップOwnerのサーバーURLリスト（順番に試す）
   tunnel_name?: string;      // Named tunnel名（固定URL用）
   tunnel_hostname?: string;  // 固定トンネルのホスト名（例: myapp.example.com）
+  agents?: AgentInfo[];
   created_at: string;
 }
 
