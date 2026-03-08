@@ -588,6 +588,12 @@ async function cmdTask(args: string[]) {
       process.exit(1);
     }
 
+    const meta = JSON.parse(original.metadata || "{}");
+    if (!meta.task) {
+      console.error(`Error: ${taskId} is not a task`);
+      process.exit(1);
+    }
+
     let author: string;
     if (flags["agent-name"]) {
       author = `agent:${flags["agent-name"]}@${config.identity}`;
@@ -597,8 +603,7 @@ async function cmdTask(args: string[]) {
       author = config.identity;
     }
 
-    const meta = JSON.parse(original.metadata || "{}");
-    const taskName = meta.task?.name || "Unknown";
+    const taskName = meta.task.name;
     const metadata = JSON.stringify({ task_update: { status } });
     const content = `[Task] ${taskName} → ${status}`;
 

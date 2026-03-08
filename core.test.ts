@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, afterEach, describe } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers } from "./src/db";
+import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers, getTasks } from "./src/db";
 import { writeConfig, readReadCursor, writeReadCursor } from "./src/config";
 
 function makeTmpChatDir(suffix: string): string {
@@ -259,5 +259,86 @@ describe("members", () => {
     expect(members.length).toBe(3);
     const names = members.map(m => m.name).sort();
     expect(names).toEqual(["Director", "Opus", "kensaku"]);
+  });
+});
+
+// -------------------------------------------------------------------
+describe("tasks", () => {
+  let chatDir: string;
+
+  beforeEach(() => {
+    chatDir = makeTmpChatDir("tasks");
+    const db = openDb(chatDir);
+    createChannel(db, "general", "General");
+
+    // Task message
+    insertMessage(db, {
+      id: "task_001", channel: "general", author: "kensaku",
+      content: "[Task] Fix bug → @Opus",
+      metadata: JSON.stringify({ task: { name: "Fix bug", assignee: "Opus", detail: "", status: "pending" } }),
+    });
+    // Non-task message
+    insertMessage(db, {
+      id: "msg_001", channel: "general", author: "kensaku",
+      content: "Hello", reply_to: null,
+    });
+    db.close();
+  });
+
+  afterEach(() => {
+    rmSync(join(chatDir, ".."), { recursive: true, force: true });
+  });
+
+  test("getTasks returns only task messages", () => {
+    const db = openDb(chatDir);
+    const tasks = getTasks(db);
+    db.close();
+
+    expect(tasks.length).toBe(1);
+    expect(tasks[0].name).toBe("Fix bug");
+    expect(tasks[0].status).toBe("pending");
+  });
+
+  test("getTasks reflects latest status update", () => {
+    const db = openDb(chatDir);
+    insertMessage(db, {
+      id: "upd_001", channel: "general", author: "agent:Opus@kensaku",
+      content: "[Task] Fix bug → active", reply_to: "task_001",
+      metadata: JSON.stringify({ task_update: { status: "active" } }),
+    });
+    const tasks = getTasks(db);
+    db.close();
+
+    expect(tasks[0].status).toBe("active");
+  });
+
+  test("getTasks filters by status", () => {
+    const db = openDb(chatDir);
+    const pending = getTasks(db, "pending");
+    const done = getTasks(db, "done");
+    db.close();
+
+    expect(pending.length).toBe(1);
+    expect(done.length).toBe(0);
+  });
+
+  test("task_update on non-root is ignored by getTasks", () => {
+    const db = openDb(chatDir);
+    // Update replying to the update (not root task) — should not affect status
+    insertMessage(db, {
+      id: "upd_001", channel: "general", author: "agent:Opus@kensaku",
+      content: "[Task] Fix bug → active", reply_to: "task_001",
+      metadata: JSON.stringify({ task_update: { status: "active" } }),
+    });
+    insertMessage(db, {
+      id: "upd_002", channel: "general", author: "agent:Opus@kensaku",
+      content: "[Task] Fix bug → done", reply_to: "upd_001",
+      metadata: JSON.stringify({ task_update: { status: "done" } }),
+    });
+    const tasks = getTasks(db);
+    db.close();
+
+    // Only direct replies to root are tracked, so status should be "active" not "done"
+    expect(tasks[0].status).toBe("active");
   });
 });
