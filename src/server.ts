@@ -54,7 +54,13 @@ export function startServer(chatDir: string, port: number) {
           name: config.name,
           owner: config.identity,
           backup_owners: config.backup_owners ?? [],
+          public_read: config.public_read ?? false,
         }, { headers });
+      }
+
+      // Block write APIs in public_read mode
+      if (config.public_read && (req.method === "POST" || req.method === "DELETE")) {
+        return Response.json({ error: "Read-only mode" }, { status: 403, headers });
       }
 
       // GET /api/agents
@@ -209,6 +215,10 @@ export function startServer(chatDir: string, port: number) {
         try {
           const data = JSON.parse(raw as string);
           if (data.type === "send") {
+            if (config.public_read) {
+              ws.send(JSON.stringify({ type: "error", error: "Read-only mode" }));
+              return;
+            }
             const { channel, author, content, reply_to, metadata } = data;
             if (!channel || !author || !content) {
               ws.send(JSON.stringify({ type: "error", error: "channel, author, content required" }));

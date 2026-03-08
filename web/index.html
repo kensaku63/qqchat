@@ -258,6 +258,17 @@
 
     #channel-header-name::before { content: '# '; color: var(--text-muted); }
 
+    .demo-banner {
+      background: linear-gradient(135deg, var(--accent), #6d28d9);
+      color: #fff;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+
     #messages { flex: 1; overflow-y: auto; padding: 8px 0; }
 
     .empty-state {
@@ -631,19 +642,32 @@
       var data = await res.json();
       state.chatName = data.name;
       state.owner = data.owner;
+      state.publicRead = data.public_read || false;
 
-      // identity は localStorage から読み込む。なければ入力させる
-      var saved = localStorage.getItem('agents-chat-identity');
-      if (!saved) {
-        saved = prompt('あなたの名前を入力してください（チャットでの表示名）:') || '';
-        saved = saved.trim() || 'anonymous';
-        localStorage.setItem('agents-chat-identity', saved);
+      if (state.publicRead) {
+        // Read-only mode: no identity prompt, hide input
+        state.identity = 'viewer';
+        document.getElementById('input-area').style.display = 'none';
+        document.getElementById('identity-bar').style.display = 'none';
+        // Add demo banner
+        var banner = el('div', {
+          className: 'demo-banner',
+        }, ['Live Demo \u2014 agents-chat']);
+        document.getElementById('main').insertBefore(banner, document.getElementById('main').firstChild);
+      } else {
+        // identity は localStorage から読み込む。なければ入力させる
+        var saved = localStorage.getItem('agents-chat-identity');
+        if (!saved) {
+          saved = prompt('あなたの名前を入力してください（チャットでの表示名）:') || '';
+          saved = saved.trim() || 'anonymous';
+          localStorage.setItem('agents-chat-identity', saved);
+        }
+        state.identity = saved;
+        document.getElementById('identity-label').textContent = saved;
       }
-      state.identity = saved;
 
       document.getElementById('chat-name').textContent = data.name;
       document.getElementById('chat-owner').textContent = 'owner: ' + data.owner;
-      document.getElementById('identity-label').textContent = saved;
     }
 
     async function fetchChannels() {
@@ -857,15 +881,18 @@
       );
       content.innerHTML = escaped;
 
-      // Actions
-      var replyBtn = el('button', { 'data-reply-btn': msg.id }, ['Reply']);
-      var linkBtn = el('button', { 'data-link-btn': msg.id }, ['Link']);
-      var actions = el('div', { className: 'msg-actions' }, [replyBtn, linkBtn]);
-
       // Body
       var bodyChildren = [];
       if (replyRef) bodyChildren.push(replyRef);
-      bodyChildren.push(header, content, actions);
+      bodyChildren.push(header, content);
+
+      // Actions (hidden in public_read mode)
+      if (!state.publicRead) {
+        var replyBtn = el('button', { 'data-reply-btn': msg.id }, ['Reply']);
+        var linkBtn = el('button', { 'data-link-btn': msg.id }, ['Link']);
+        var actions = el('div', { className: 'msg-actions' }, [replyBtn, linkBtn]);
+        bodyChildren.push(actions);
+      }
       var body = el('div', { className: 'msg-body' }, bodyChildren);
 
       return el('div', { className: 'message', 'data-id': msg.id }, [avatar, body]);
@@ -1166,7 +1193,9 @@
 
     async function init() {
       await fetchInfo();
-      await registerMember(state.identity);
+      if (!state.publicRead) {
+        await registerMember(state.identity);
+      }
       await fetchMembers();
       await fetchAgents();
       await fetchChannelsMeta();

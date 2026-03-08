@@ -33,6 +33,7 @@ export interface ChatConfig {
   tunnel_name?: string;      // Named tunnel名（固定URL用）
   tunnel_hostname?: string;  // 固定トンネルのホスト名（例: myapp.example.com）
   agents?: AgentInfo[];
+  public_read?: boolean;     // 読み取り専用モード（公開デモ用）
   created_at: string;
 }
 
