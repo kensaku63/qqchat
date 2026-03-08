@@ -212,20 +212,23 @@ export function startServer(chatDir: string, port: number) {
         const agent = url.searchParams.get("agent") || undefined;
         const tag = url.searchParams.get("tag") || undefined;
         const search = url.searchParams.get("search") || undefined;
-        const last = url.searchParams.get("last") ? parseInt(url.searchParams.get("last")!) : undefined;
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
         return Response.json({ memories: getMemories(db, { agent, tag, search, last }) }, { headers });
       }
 
       // GET /api/summaries/:channel
       if (path.startsWith("/api/summaries/") && req.method === "GET") {
         const channel = decodeURIComponent(path.slice("/api/summaries/".length));
-        const last = url.searchParams.get("last") ? parseInt(url.searchParams.get("last")!) : undefined;
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
         return Response.json({ summaries: getSummaries(db, channel, last) }, { headers });
       }
 
       // GET /api/summaries (all channels)
       if (path === "/api/summaries" && req.method === "GET") {
-        const last = url.searchParams.get("last") ? parseInt(url.searchParams.get("last")!) : undefined;
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
         return Response.json({ summaries: getSummaries(db, undefined, last) }, { headers });
       }
 
