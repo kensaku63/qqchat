@@ -531,10 +531,71 @@
 
     #send-btn:hover { background: var(--accent-hover); }
     #send-btn:active { transform: scale(0.98); }
+
+    /* Toast */
+    #error-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #ef4444;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    #error-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      #sidebar {
+        position: fixed;
+        left: -240px;
+        top: 0;
+        bottom: 0;
+        z-index: 50;
+        transition: left 0.2s;
+      }
+      #sidebar.open { left: 0; }
+      #sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 49;
+      }
+      #sidebar-overlay.visible { display: block; }
+      #mobile-menu-btn { display: flex; }
+      #context-panel { width: 90vw; max-width: 640px; }
+      .msg-actions { opacity: 1; }
+    }
+
+    @media (min-width: 769px) {
+      #mobile-menu-btn { display: none; }
+      #sidebar-overlay { display: none !important; }
+    }
+
+    #mobile-menu-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
   </style>
 </head>
 <body>
   <div id="app">
+    <div id="sidebar-overlay"></div>
     <aside id="sidebar">
       <div id="chat-info">
         <div id="chat-name">Loading...</div>
@@ -559,6 +620,7 @@
     </aside>
     <main id="main">
       <header id="channel-header" style="display:flex;align-items:center;">
+        <button id="mobile-menu-btn">&#9776;</button>
         <span id="channel-header-name">general</span>
         <button id="context-btn">Context</button>
       </header>
@@ -749,15 +811,43 @@
       };
       if (state.replyTo) body.reply_to = state.replyTo;
 
+      // Save state before clearing
+      var savedContent = input.value;
+      var savedReplyTo = state.replyTo;
+
       input.value = '';
       input.style.height = 'auto';
       cancelReply();
 
-      await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      try {
+        var res = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          throw new Error('Server error: ' + res.status);
+        }
+      } catch (e) {
+        // Restore input and reply state
+        input.value = savedContent;
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+        if (savedReplyTo) startReply(savedReplyTo);
+        showToast('送信に失敗しました: ' + (e.message || 'Unknown error'));
+      }
+    }
+
+    function showToast(message) {
+      var existing = document.getElementById('error-toast');
+      if (existing) existing.remove();
+      var toast = el('div', { id: 'error-toast' }, [message]);
+      document.body.appendChild(toast);
+      setTimeout(function() { toast.classList.add('visible'); }, 10);
+      setTimeout(function() {
+        toast.classList.remove('visible');
+        setTimeout(function() { toast.remove(); }, 300);
+      }, 4000);
     }
 
     // --- WebSocket ---
@@ -778,6 +868,14 @@
         }
         if (data.type === 'members') {
           state.members = data.members.map(function(m) { return m.name; });
+        }
+        if (data.type === 'agents') {
+          state.agents = data.agents || {};
+          renderAgents();
+        }
+        if (data.type === 'channels_meta') {
+          state.channelsMeta = data.channels || {};
+          renderChannels();
         }
         if (data.type === 'msg') {
           if (state.messages.some(function(m) { return m.id === data.id; })) return;
@@ -854,6 +952,7 @@
       renderChannels();
       renderMessages();
       cancelReply();
+      closeMobileSidebar();
       document.getElementById('message-input').focus();
     }
 
@@ -1274,6 +1373,23 @@
       document.getElementById('identity-label').textContent = newName;
       await registerMember(newName, current);
     });
+
+    // --- Mobile sidebar ---
+
+    document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sidebar-overlay').classList.add('visible');
+    });
+
+    document.getElementById('sidebar-overlay').addEventListener('click', function() {
+      document.getElementById('sidebar').classList.remove('open');
+      this.classList.remove('visible');
+    });
+
+    function closeMobileSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-overlay').classList.remove('visible');
+    }
 
     // --- Init ---
 

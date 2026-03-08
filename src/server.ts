@@ -83,6 +83,7 @@ export function startServer(chatDir: string, port: number) {
           channels: body.channels || agents[body.name]?.channels || [],
         };
         writeAgentsConfig(chatDir, agents);
+        server.publish("chat", JSON.stringify({ type: "agents", agents }));
         return Response.json({ ok: true }, { headers });
       }
 
@@ -92,6 +93,7 @@ export function startServer(chatDir: string, port: number) {
         const agents = readAgentsConfig(chatDir);
         delete agents[name];
         writeAgentsConfig(chatDir, agents);
+        server.publish("chat", JSON.stringify({ type: "agents", agents }));
         return Response.json({ ok: true }, { headers });
       }
 
@@ -111,6 +113,7 @@ export function startServer(chatDir: string, port: number) {
           status: (body.status as any) || channels[body.name]?.status || "active",
         };
         writeChannelsMeta(chatDir, channels);
+        server.publish("chat", JSON.stringify({ type: "channels_meta", channels }));
         return Response.json({ ok: true }, { headers });
       }
 
