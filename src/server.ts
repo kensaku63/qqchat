@@ -1,5 +1,5 @@
 import { networkInterfaces } from "node:os";
-import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, type Message } from "./db";
+import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, getTasks, getMemories, getSummaries, type Message } from "./db";
 import { readConfig, readSyncCursor, readChannelsMeta, writeChannelsMeta, readAgentsConfig, writeAgentsConfig } from "./config";
 import webHtml from "../web/index.html" with { type: "text" };
 
@@ -199,6 +199,37 @@ export function startServer(chatDir: string, port: number) {
         server.publish("chat", JSON.stringify({ type: "msg", ...msg }));
 
         return Response.json({ ok: true }, { headers });
+      }
+
+      // GET /api/tasks?status=pending|active|done
+      if (path === "/api/tasks" && req.method === "GET") {
+        const status = url.searchParams.get("status") || undefined;
+        return Response.json({ tasks: getTasks(db, status) }, { headers });
+      }
+
+      // GET /api/memories?agent=&tag=&search=&last=
+      if (path === "/api/memories" && req.method === "GET") {
+        const agent = url.searchParams.get("agent") || undefined;
+        const tag = url.searchParams.get("tag") || undefined;
+        const search = url.searchParams.get("search") || undefined;
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
+        return Response.json({ memories: getMemories(db, { agent, tag, search, last }) }, { headers });
+      }
+
+      // GET /api/summaries/:channel
+      if (path.startsWith("/api/summaries/") && req.method === "GET") {
+        const channel = decodeURIComponent(path.slice("/api/summaries/".length));
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
+        return Response.json({ summaries: getSummaries(db, channel, last) }, { headers });
+      }
+
+      // GET /api/summaries (all channels)
+      if (path === "/api/summaries" && req.method === "GET") {
+        const lastRaw = url.searchParams.get("last");
+        const last = lastRaw ? (parseInt(lastRaw, 10) || undefined) : undefined;
+        return Response.json({ summaries: getSummaries(db, undefined, last) }, { headers });
       }
 
       // GET /api/thread/:id

@@ -126,11 +126,11 @@
     }
 
     .agent-item {
-      padding: 4px 20px;
+      padding: 6px 20px;
       font-size: 13px;
       display: flex;
-      align-items: center;
       gap: 8px;
+      align-items: flex-start;
     }
 
     .agent-item-avatar {
@@ -144,12 +144,15 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      margin-top: 1px;
     }
     .agent-item-avatar.agent { background: var(--agent-avatar); }
     .agent-item-avatar.human { background: var(--human-avatar); }
 
-    .agent-item-name { color: var(--sidebar-text); }
-    .agent-item-role { color: var(--text-muted); font-size: 11px; }
+    .agent-item-info { flex: 1; min-width: 0; }
+    .agent-item-name { color: var(--sidebar-text); font-weight: 600; font-size: 13px; }
+    .agent-item-meta { color: var(--text-muted); font-size: 11px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .agent-item-desc { color: var(--text-muted); font-size: 10px; margin-top: 1px; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     #context-btn {
       background: none;
@@ -930,18 +933,46 @@
       });
     }
 
+    var ROLE_COLORS = {
+      builder: '#7c3aed',
+      reviewer: '#3b82f6',
+      director: '#059669',
+      ideator: '#f59e0b',
+      planner: '#f59e0b',
+      marketer: '#ec4899',
+      developer: '#8b5cf6',
+    };
+
+    function getRoleColor(role) {
+      return ROLE_COLORS[role] || '#6c7086';
+    }
+
     function renderAgents() {
       var list = document.getElementById('agent-list');
       while (list.firstChild) list.removeChild(list.firstChild);
       var entries = Object.entries(state.agents);
       entries.forEach(function(entry) {
         var name = entry[0], info = entry[1];
+        var avatar = el('div', { className: 'agent-item-avatar agent' }, [name.slice(0, 2).toUpperCase()]);
+        avatar.style.background = getRoleColor(info.role);
+
+        var metaText = info.role || '';
+        if (info.channels && info.channels.length > 0) {
+          metaText += ' · ' + info.channels.map(function(c) { return '#' + c; }).join(' ');
+        }
+
+        var infoChildren = [
+          el('div', { className: 'agent-item-name' }, [name]),
+          el('div', { className: 'agent-item-meta' }, [metaText]),
+        ];
+        if (info.description) {
+          infoChildren.push(el('div', { className: 'agent-item-desc' }, [info.description]));
+        }
+
         var item = el('div', { className: 'agent-item' }, [
-          el('div', { className: 'agent-item-avatar agent' }, [name.slice(0, 2).toUpperCase()]),
-          el('span', { className: 'agent-item-name' }, [name]),
-          el('span', { className: 'agent-item-role' }, [info.role || '']),
+          avatar,
+          el('div', { className: 'agent-item-info' }, infoChildren),
         ]);
-        item.title = info.description || '';
         list.appendChild(item);
       });
     }
@@ -1305,8 +1336,18 @@
       panel.appendChild(el('h2', {}, ['Loading...']));
       document.getElementById('context-overlay').classList.add('visible');
 
-      var res = await fetch('/api/context');
-      var data = await res.json();
+      // Fetch all data in parallel
+      var results = await Promise.all([
+        fetch('/api/context').then(function(r) { return r.json(); }),
+        fetch('/api/tasks').then(function(r) { return r.json(); }).catch(function() { return { tasks: [] }; }),
+        fetch('/api/memories').then(function(r) { return r.json(); }).catch(function() { return { memories: [] }; }),
+        fetch('/api/summaries').then(function(r) { return r.json(); }).catch(function() { return { summaries: [] }; }),
+      ]);
+
+      var data = results[0];
+      var tasks = results[1].tasks || [];
+      var memories = results[2].memories || [];
+      var summaries = results[3].summaries || [];
 
       while (panel.firstChild) panel.removeChild(panel.firstChild);
       panel.appendChild(el('h2', {}, ['Project Context']));
@@ -1317,6 +1358,7 @@
         panel.appendChild(pre);
       }
 
+      // Channels
       var channels = data.channels || {};
       var chEntries = Object.entries(channels);
       if (chEntries.length > 0) {
@@ -1334,6 +1376,7 @@
         panel.appendChild(chTable);
       }
 
+      // Agents
       var agents = data.agents || {};
       var agEntries = Object.entries(agents);
       if (agEntries.length > 0) {
@@ -1350,6 +1393,98 @@
           ]));
         });
         panel.appendChild(agTable);
+      }
+
+      // Tasks
+      panel.appendChild(el('h3', {}, ['Tasks']));
+      if (tasks.length === 0) {
+        var noTasks = el('p', {});
+        noTasks.style.fontSize = '13px';
+        noTasks.style.color = '#999';
+        noTasks.textContent = 'No tasks';
+        panel.appendChild(noTasks);
+      } else {
+        var grouped = { pending: [], active: [], done: [] };
+        tasks.forEach(function(t) { if (grouped[t.status]) grouped[t.status].push(t); });
+
+        var statusLabels = { pending: '\u25CB Pending', active: '\u25B6 Active', done: '\u2713 Done' };
+        ['pending', 'active', 'done'].forEach(function(s) {
+          if (grouped[s].length === 0) return;
+          var label = el('div', {});
+          label.style.cssText = 'font-size:12px;font-weight:600;margin:8px 0 4px;color:#666;';
+          label.textContent = statusLabels[s] + ' (' + grouped[s].length + ')';
+          panel.appendChild(label);
+          grouped[s].forEach(function(t) {
+            var icon = s === 'done' ? '\u2611' : '\u2610';
+            var taskEl = el('div', {});
+            taskEl.style.cssText = 'font-size:13px;padding:2px 0 2px 12px;';
+            taskEl.textContent = icon + ' ' + t.name + (t.assignee ? ' \u2192 @' + t.assignee : '');
+            panel.appendChild(taskEl);
+          });
+        });
+      }
+
+      // Recent Summaries
+      panel.appendChild(el('h3', {}, ['Recent Summaries']));
+      if (summaries.length === 0) {
+        var noSum = el('p', {});
+        noSum.style.fontSize = '13px';
+        noSum.style.color = '#999';
+        noSum.textContent = 'No summaries';
+        panel.appendChild(noSum);
+      } else {
+        // Show last 5 summaries, newest first
+        var recentSummaries = summaries.slice(-5).reverse();
+        recentSummaries.forEach(function(s) {
+          var date = new Date(s.created_at);
+          var dateStr = String(date.getMonth()+1).padStart(2,'0') + '/' +
+                       String(date.getDate()).padStart(2,'0') + ' ' +
+                       String(date.getHours()).padStart(2,'0') + ':' +
+                       String(date.getMinutes()).padStart(2,'0');
+          var sumEl = el('div', {});
+          sumEl.style.cssText = 'font-size:13px;padding:4px 0;';
+          var chLabel = el('span', {});
+          chLabel.style.cssText = 'font-weight:600;';
+          chLabel.textContent = '#' + (s.channel || '?') + ' \u2014 ' + dateStr;
+          var preview = el('div', {});
+          preview.style.cssText = 'font-size:12px;color:#666;padding-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:580px;';
+          preview.textContent = s.content.slice(0, 120) + (s.content.length > 120 ? '...' : '');
+          sumEl.appendChild(chLabel);
+          sumEl.appendChild(preview);
+          panel.appendChild(sumEl);
+        });
+      }
+
+      // Agent Memories
+      panel.appendChild(el('h3', {}, ['Agent Memories']));
+      if (memories.length === 0) {
+        var noMem = el('p', {});
+        noMem.style.fontSize = '13px';
+        noMem.style.color = '#999';
+        noMem.textContent = 'No memories';
+        panel.appendChild(noMem);
+      } else {
+        // Group by agent
+        var memByAgent = {};
+        memories.forEach(function(m) {
+          if (!memByAgent[m.agent]) memByAgent[m.agent] = [];
+          memByAgent[m.agent].push(m);
+        });
+        Object.entries(memByAgent).forEach(function(entry) {
+          var agentName = entry[0], mems = entry[1];
+          var agentLabel = el('div', {});
+          agentLabel.style.cssText = 'font-size:12px;font-weight:600;margin:8px 0 4px;color:#666;';
+          agentLabel.textContent = agentName + ' (' + mems.length + ' memories)';
+          panel.appendChild(agentLabel);
+          // Show last 3 per agent
+          mems.slice(-3).forEach(function(m) {
+            var memEl = el('div', {});
+            memEl.style.cssText = 'font-size:12px;color:#666;padding:1px 0 1px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:580px;';
+            var tagStr = m.tags && m.tags.length > 0 ? ' [' + m.tags.join(', ') + ']' : '';
+            memEl.textContent = '\u2022 ' + m.content.slice(0, 100) + (m.content.length > 100 ? '...' : '') + tagStr;
+            panel.appendChild(memEl);
+          });
+        });
       }
 
       var footer = el('p', { className: '' }, ['Files: .chat/channels.json, .chat/agents.json']);
