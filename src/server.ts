@@ -57,6 +57,23 @@ export function startServer(chatDir: string, port: number) {
         }, { headers });
       }
 
+      // GET /api/agents
+      if (path === "/api/agents" && req.method === "GET") {
+        const freshConfig = readConfig(chatDir);
+        return Response.json({ agents: freshConfig.agents ?? [] }, { headers });
+      }
+
+      // GET /api/context
+      if (path === "/api/context" && req.method === "GET") {
+        const { existsSync: ex, readFileSync: rf } = require("node:fs");
+        const { resolve: rs } = require("node:path");
+        const chatMdPath = rs(chatDir, "..", "CHAT.md");
+        if (!ex(chatMdPath)) {
+          return Response.json({ content: null }, { headers });
+        }
+        return Response.json({ content: rf(chatMdPath, "utf-8") }, { headers });
+      }
+
       // GET /api/members
       if (path === "/api/members" && req.method === "GET") {
         return Response.json({ members: getMembers(db) }, { headers });
