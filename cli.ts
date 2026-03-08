@@ -3,7 +3,7 @@ import { resolve, join, basename } from "node:path";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, readChannelsMeta, writeChannelsMeta, readAgentsConfig, writeAgentsConfig, type ChatConfig, type ChannelsConfig, type AgentsConfig } from "./src/config";
-import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMemories, getSummaries } from "./src/db";
+import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMemories, getSummaries, resolveThreadRoot, type ThreadedMessage } from "./src/db";
 import { sync, sendToUpstream, getUpstreamUrls } from "./src/sync";
 import { readReadCursor, writeReadCursor } from "./src/config";
 import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, startStandbyMode, syncFromBackups } from "./src/server";
@@ -283,7 +283,14 @@ async function cmdSend(args: string[]) {
     author = config.identity;
   }
 
-  await sendToUpstream(chatDir, channel, author, content, flags["reply-to"] as string);
+  let replyTo = flags["reply-to"] as string | undefined;
+  if (replyTo) {
+    const db = openDb(chatDir);
+    replyTo = resolveThreadRoot(db, replyTo);
+    db.close();
+  }
+
+  await sendToUpstream(chatDir, channel, author, content, replyTo);
   console.log("ok");
 }
 
@@ -305,7 +312,8 @@ async function cmdRead(args: string[]) {
   }
 
   const db = openDb(chatDir);
-  const opts: { last?: number; since?: string; search?: string; mention?: string } = {};
+  const flat = !!flags.flat;
+  const opts: { last?: number; since?: string; search?: string; mention?: string; flat?: boolean } = { flat };
 
   if (flags.last) opts.last = parseInt(flags.last as string);
   if (flags.since) opts.since = parseSince(flags.since as string);
@@ -333,8 +341,14 @@ async function cmdRead(args: string[]) {
     console.log(`#${channel}`);
     for (const msg of msgs) {
       const time = formatTime(msg.id);
-      const replyTag = msg.reply_to ? ` [reply:${msg.reply_to.slice(-6)}]` : "";
-      console.log(`[${time}] ${msg.author}${replyTag}: ${msg.content}`);
+      const tm = msg as ThreadedMessage;
+      if (!flat && tm.reply_count !== undefined) {
+        const threadTag = tm.reply_count > 0 ? ` [${tm.reply_count} replies]` : "";
+        console.log(`[${time}] ${msg.author}: ${msg.content}${threadTag}`);
+      } else {
+        const replyTag = msg.reply_to ? ` [reply:${msg.reply_to.slice(-6)}]` : "";
+        console.log(`[${time}] ${msg.author}${replyTag}: ${msg.content}`);
+      }
     }
     return;
   }
@@ -447,6 +461,18 @@ async function cmdUnread(args: string[]) {
     const allMsgs = getUnreadMessages(db, cursor);
     if (allMsgs.length > 0) writeReadCursor(chatDir, allMsgs[allMsgs.length - 1]!.id);
   }
+
+  // Build thread context for messages with reply_to
+  const threadContextMap = new Map<string, string>();
+  for (const msg of msgs) {
+    if (msg.reply_to && !threadContextMap.has(msg.reply_to)) {
+      const root = getMessage(db, msg.reply_to);
+      if (root) {
+        const preview = root.content.length > 80 ? root.content.slice(0, 80) + "..." : root.content;
+        threadContextMap.set(msg.reply_to, `${root.author}: ${preview}`);
+      }
+    }
+  }
   db.close();
 
   if (msgs.length === 0) {
@@ -471,14 +497,22 @@ async function cmdUnread(args: string[]) {
       console.log(`\n#${channel} (${channelMsgs.length})`);
       for (const msg of channelMsgs) {
         const time = formatTime(msg.id);
-        const replyTag = msg.reply_to ? ` [reply:${msg.reply_to.slice(-6)}]` : "";
-        console.log(`  [${time}] ${msg.author}${replyTag}: ${msg.content}`);
+        const ctx = msg.reply_to ? threadContextMap.get(msg.reply_to) : null;
+        const threadTag = ctx ? ` [thread: ${ctx}]` : "";
+        console.log(`  [${time}] ${msg.author}: ${msg.content}${threadTag}`);
       }
     }
     return;
   }
 
-  console.log(JSON.stringify({ unread: msgs.length, messages: msgs.map(stripNulls) }, null, 2));
+  const enriched = msgs.map(m => {
+    const base = stripNulls(m);
+    if (m.reply_to) {
+      (base as any).thread_context = threadContextMap.get(m.reply_to) || null;
+    }
+    return base;
+  });
+  console.log(JSON.stringify({ unread: msgs.length, messages: enriched }, null, 2));
 }
 
 async function cmdThread(args: string[]) {
@@ -492,7 +526,7 @@ async function cmdThread(args: string[]) {
 
   const chatDir = requireChatDir();
   const db = openDb(chatDir);
-  const { root, replies } = getThread(db, messageId);
+  const { root, replies, participants, reply_count } = getThread(db, messageId);
   db.close();
 
   if (!root) {
@@ -502,13 +536,10 @@ async function cmdThread(args: string[]) {
 
   if (flags.text) {
     const time = formatTime(root.id);
-    console.log(`Thread: ${root.id}`);
+    console.log(`Thread: ${root.id} (${reply_count} replies, participants: ${participants.join(", ")})`);
     console.log(`[${time}] ${root.author}: ${root.content}`);
 
-    if (replies.length === 0) {
-      console.log("\n  No replies.");
-    } else {
-      console.log(`\n  ${replies.length} replies:`);
+    if (replies.length > 0) {
       for (const reply of replies) {
         const rt = formatTime(reply.id);
         console.log(`  [${rt}] ${reply.author}: ${reply.content}`);
@@ -517,7 +548,7 @@ async function cmdThread(args: string[]) {
     return;
   }
 
-  console.log(JSON.stringify({ root: stripNulls(root), replies: replies.map(stripNulls) }, null, 2));
+  console.log(JSON.stringify({ root: stripNulls(root), replies: replies.map(stripNulls), participants, reply_count }, null, 2));
 }
 
 async function cmdStatus() {

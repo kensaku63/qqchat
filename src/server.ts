@@ -1,5 +1,5 @@
 import { networkInterfaces } from "node:os";
-import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, type Message } from "./db";
+import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, type Message } from "./db";
 import { readConfig, readSyncCursor, readChannelsMeta, writeChannelsMeta, readAgentsConfig, writeAgentsConfig } from "./config";
 import webHtml from "../web/index.html" with { type: "text" };
 
@@ -178,12 +178,13 @@ export function startServer(chatDir: string, port: number) {
           return Response.json({ error: "channel, author, content are required" }, { status: 400, headers });
         }
 
+        const replyTo = body.reply_to ? resolveThreadRoot(db, body.reply_to) : null;
         const msg: Message = {
           id: generateId(),
           channel: body.channel,
           author: body.author,
           content: body.content,
-          reply_to: body.reply_to ?? null,
+          reply_to: replyTo,
           metadata: body.metadata ?? null,
         };
 
@@ -195,6 +196,14 @@ export function startServer(chatDir: string, port: number) {
         server.publish("chat", JSON.stringify({ type: "msg", ...msg }));
 
         return Response.json({ ok: true }, { headers });
+      }
+
+      // GET /api/thread/:id
+      if (path.startsWith("/api/thread/") && req.method === "GET") {
+        const id = path.slice("/api/thread/".length);
+        const result = getThread(db, id);
+        if (!result.root) return Response.json({ error: "Not found" }, { status: 404, headers });
+        return Response.json(result, { headers });
       }
 
       // POST /api/merge - バックアップサーバーからのメッセージ一括インポート
@@ -227,12 +236,13 @@ export function startServer(chatDir: string, port: number) {
               ws.send(JSON.stringify({ type: "error", error: "channel, author, content required" }));
               return;
             }
+            const resolvedReplyTo = reply_to ? resolveThreadRoot(db, reply_to) : null;
             const msg: Message = {
               id: generateId(),
               channel,
               author,
               content,
-              reply_to: reply_to ?? null,
+              reply_to: resolvedReplyTo,
               metadata: metadata ?? null,
             };
             ensureChannel(db, msg.channel);
