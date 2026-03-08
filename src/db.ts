@@ -163,12 +163,23 @@ export function parseAuthor(author: string): { name: string; type: "human" | "ag
 }
 
 export function ensureMember(db: Database, author: string): void {
+  // Skip unnamed agents (agent@identity) - the identity is the machine user, not a mentionable name
+  if (author.startsWith("agent@")) return;
   const { name, type } = parseAuthor(author);
   db.run("INSERT OR IGNORE INTO members (name, type) VALUES (?, ?)", [name, type]);
 }
 
 export function getMembers(db: Database): { name: string; type: string; joined_at: string }[] {
   return db.prepare("SELECT * FROM members ORDER BY name").all() as any[];
+}
+
+// Rebuild members table from messages (fixes stale/duplicate entries)
+export function rebuildMembers(db: Database): void {
+  const authors = db.prepare("SELECT DISTINCT author FROM messages").all() as { author: string }[];
+  db.exec("DELETE FROM members");
+  for (const { author } of authors) {
+    ensureMember(db, author);
+  }
 }
 
 export function getUnreadMessages(db: Database, sinceId: string): Message[] {

@@ -1,5 +1,5 @@
 import { networkInterfaces } from "node:os";
-import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, type Message } from "./db";
+import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, type Message } from "./db";
 import { readConfig, readSyncCursor } from "./config";
 import webHtml from "../web/index.html" with { type: "text" };
 
@@ -15,6 +15,7 @@ function getLocalIp(): string {
 
 export function startServer(chatDir: string, port: number) {
   const db = openDb(chatDir);
+  rebuildMembers(db);  // Clean up stale/duplicate member entries on startup
   const config = readConfig(chatDir);
 
   const server = Bun.serve({
