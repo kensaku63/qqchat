@@ -412,7 +412,17 @@ async function cmdUnread(args: string[]) {
 
   const cursor = readReadCursor(chatDir);
   const db = openDb(chatDir);
-  const msgs = getUnreadMessages(db, cursor);
+  const forName = flags.for as string | undefined;
+  const msgs = getUnreadMessages(db, cursor, forName);
+
+  // Update read cursor to latest unfiltered message (skip when --peek or --for)
+  if (!flags["peek"] && !forName && msgs.length > 0) {
+    writeReadCursor(chatDir, msgs[msgs.length - 1]!.id);
+  } else if (!flags["peek"] && forName) {
+    // When using --for, still advance cursor based on all unread
+    const allMsgs = getUnreadMessages(db, cursor);
+    if (allMsgs.length > 0) writeReadCursor(chatDir, allMsgs[allMsgs.length - 1]!.id);
+  }
   db.close();
 
   if (msgs.length === 0) {
@@ -422,12 +432,6 @@ async function cmdUnread(args: string[]) {
       console.log(JSON.stringify({ unread: 0, messages: [] }));
     }
     return;
-  }
-
-  // Update read cursor to latest message
-  const newCursor = msgs[msgs.length - 1]!.id;
-  if (!flags["peek"]) {
-    writeReadCursor(chatDir, newCursor);
   }
 
   if (flags.text) {
@@ -747,8 +751,9 @@ Commands:
     --sync                        Sync from upstream before reading
     --text                        Output as human-readable text
 
-  unread [--peek]                  Show unread messages (default: JSON output)
+  unread [--peek] [--for <name>]   Show unread messages (default: JSON output)
     --peek                        Don't mark messages as read
+    --for <name>                  Show only messages mentioning @name
     --text                        Output as human-readable text
 
   thread <message-id>              View a message thread (default: JSON output)

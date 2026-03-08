@@ -173,10 +173,9 @@ export function getMembers(db: Database): { name: string; type: string; joined_a
   return db.prepare("SELECT * FROM members ORDER BY name").all() as any[];
 }
 
-// Rebuild members table from messages (fixes stale/duplicate entries)
+// Ensure all message authors are in the members table (without deleting existing members)
 export function rebuildMembers(db: Database): void {
   const authors = db.prepare("SELECT DISTINCT author FROM messages").all() as { author: string }[];
-  db.exec("DELETE FROM members");
   for (const { author } of authors) {
     ensureMember(db, author);
   }
@@ -232,10 +231,20 @@ export function getTasks(db: Database, statusFilter?: string): Task[] {
   return tasks;
 }
 
-export function getUnreadMessages(db: Database, sinceId: string): Message[] {
-  if (!sinceId) {
-    return db.prepare("SELECT * FROM messages ORDER BY id ASC").all() as Message[];
+export function getUnreadMessages(db: Database, sinceId: string, forName?: string): Message[] {
+  const conds: string[] = [];
+  const params: any[] = [];
+
+  if (sinceId) {
+    conds.push("id > ?");
+    params.push(sinceId);
   }
-  return db.prepare("SELECT * FROM messages WHERE id > ? ORDER BY id ASC").all(sinceId) as Message[];
+  if (forName) {
+    conds.push("content LIKE ?");
+    params.push(`%@${forName}%`);
+  }
+
+  const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
+  return db.prepare(`SELECT * FROM messages ${where} ORDER BY id ASC`).all(...params) as Message[];
 }
 

@@ -1,7 +1,7 @@
 import { test, expect, beforeEach, afterEach, describe } from "bun:test";
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers, getTasks } from "./src/db";
+import { openDb, createChannel, insertMessage, insertMessages, generateId, getThread, getUnreadMessages, queryMessages, parseAuthor, ensureMember, getMembers, rebuildMembers, getTasks } from "./src/db";
 import { writeConfig, readReadCursor, writeReadCursor } from "./src/config";
 
 function makeTmpChatDir(suffix: string): string {
@@ -95,6 +95,50 @@ describe("unread", () => {
     writeReadCursor(chatDir, "bbb_002");
     const cursor = readReadCursor(chatDir);
     expect(cursor).toBe("bbb_002");
+  });
+
+  test("filters by forName (mention)", () => {
+    const db = openDb(chatDir);
+    insertMessage(db, { id: "ddd_004", channel: "general", author: "kensaku", content: "@Opus check this", reply_to: null });
+    insertMessage(db, { id: "eee_005", channel: "general", author: "agent:Opus@kensaku", content: "ok", reply_to: null });
+
+    const msgs = getUnreadMessages(db, "", "Opus");
+    db.close();
+    expect(msgs.length).toBe(1);
+    expect(msgs[0].content).toBe("@Opus check this");
+  });
+});
+
+// -------------------------------------------------------------------
+describe("rebuildMembers preserves renamed members", () => {
+  let chatDir: string;
+
+  beforeEach(() => {
+    chatDir = makeTmpChatDir("rebuild");
+    const db = openDb(chatDir);
+    createChannel(db, "general", "General");
+    insertMessage(db, { id: "r_001", channel: "general", author: "agent:OldName@kensaku", content: "hello", reply_to: null });
+    db.close();
+  });
+
+  afterEach(() => {
+    rmSync(join(chatDir, ".."), { recursive: true, force: true });
+  });
+
+  test("does not delete manually added members", () => {
+    const db = openDb(chatDir);
+    // Simulate rename: delete old, insert new
+    db.run("DELETE FROM members WHERE name = ?", ["OldName"]);
+    ensureMember(db, "agent:NewName@kensaku");
+
+    // Rebuild should add OldName back but keep NewName
+    rebuildMembers(db);
+    const members = getMembers(db);
+    db.close();
+
+    const names = members.map(m => m.name).sort();
+    expect(names).toContain("NewName");
+    expect(names).toContain("OldName");
   });
 });
 
