@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { resolve, join, basename } from "node:path";
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
 import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage } from "./src/db";
@@ -90,8 +90,15 @@ async function cmdInit(args: string[]) {
   createChannel(db, "general", "General discussion");
   db.close();
 
+  // Create CHAT.md in project root
+  const chatMdPath = join(process.cwd(), "CHAT.md");
+  if (!existsSync(chatMdPath)) {
+    writeFileSync(chatMdPath, `# ${name}\n\nThis project uses [agents-chat](https://github.com/kensaku63/agents-chat) for team communication.\n\n## Getting Started\n\n- \`chat context\` — Read this file\n- \`chat agent list\` — See registered agents\n- \`chat unread\` — Check unread messages\n- \`chat send <channel> <message>\` — Send a message\n`);
+  }
+
   console.log(`Chat initialized: ${name}`);
   console.log(`  Directory: ${chatDir}`);
+  console.log(`  CHAT.md:   ${chatMdPath}`);
   console.log(`  Identity:  ${identity}`);
   console.log(`  Role:      owner`);
   console.log("");
@@ -616,6 +623,80 @@ async function cmdTask(args: string[]) {
   }
 }
 
+async function cmdAgent(args: string[]) {
+  const sub = args[0];
+  const subArgs = args.slice(1);
+
+  if (sub === "create") {
+    const { positional, flags } = parseArgs(subArgs);
+    const name = positional.join(" ");
+    if (!name) {
+      console.error("Usage: chat agent create <name> --role <role> [--channels ch1,ch2]");
+      process.exit(1);
+    }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+    const role = (flags.role as string) || "";
+    const channels = flags.channels ? (flags.channels as string).split(",") : [];
+
+    if (!config.agents) config.agents = [];
+    const existing = config.agents.findIndex(a => a.name === name);
+    if (existing >= 0) {
+      config.agents[existing] = { name, role, channels };
+    } else {
+      config.agents.push({ name, role, channels });
+    }
+    writeConfig(chatDir, config);
+    console.log(`Agent registered: ${name} (${role || "no role"})`);
+
+  } else if (sub === "list") {
+    const { flags } = parseArgs(subArgs);
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+    const agents = config.agents || [];
+
+    if (flags.text) {
+      if (agents.length === 0) { console.log("No agents registered."); return; }
+      for (const a of agents) {
+        const ch = a.channels.length > 0 ? ` [${a.channels.join(", ")}]` : "";
+        console.log(`  ${a.name} — ${a.role || "(no role)"}${ch}`);
+      }
+      return;
+    }
+    console.log(JSON.stringify(agents, null, 2));
+
+  } else if (sub === "remove") {
+    const { positional } = parseArgs(subArgs);
+    const name = positional.join(" ");
+    if (!name) { console.error("Usage: chat agent remove <name>"); process.exit(1); }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+    config.agents = (config.agents || []).filter(a => a.name !== name);
+    writeConfig(chatDir, config);
+    console.log(`Agent removed: ${name}`);
+
+  } else {
+    console.error("Usage: chat agent <create|list|remove>");
+    process.exit(1);
+  }
+}
+
+function cmdContext() {
+  const chatDir = requireChatDir();
+  const rootDir = resolve(chatDir, "..");
+  const chatMdPath = join(rootDir, "CHAT.md");
+
+  if (!existsSync(chatMdPath)) {
+    console.error("CHAT.md not found. Create it in your project root.");
+    process.exit(1);
+  }
+
+  const content = readFileSync(chatMdPath, "utf-8");
+  console.log(content);
+}
+
 // --- Help ---
 
 function showHelp() {
@@ -664,6 +745,14 @@ Commands:
     --text                        Output as human-readable text
   task update <id> --status S     Update task status
 
+  agent create <name>             Register an agent
+    --role <role>                 Agent role (e.g. builder, reviewer)
+    --channels ch1,ch2            Assigned channels
+  agent list                      List registered agents
+  agent remove <name>             Remove an agent
+
+  context                         Show CHAT.md (project context for agents)
+
   status                          Show chat info
 
 Options:
@@ -687,6 +776,8 @@ switch (cmd) {
   case "thread":         await cmdThread(args); break;
   case "unread":         await cmdUnread(args); break;
   case "task":           await cmdTask(args); break;
+  case "agent":          await cmdAgent(args); break;
+  case "context":        cmdContext(); break;
   case "status":         await cmdStatus(); break;
   case "help": case "--help": case "-h": case undefined:
     showHelp(); break;
