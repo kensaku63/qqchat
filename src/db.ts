@@ -87,9 +87,18 @@ export function insertMessages(db: Database, msgs: Message[]): Message[] {
   return inserted;
 }
 
-export function queryMessages(db: Database, channel: string, opts: { last?: number; since?: string; search?: string; mention?: string } = {}): Message[] {
+export interface ThreadedMessage extends Message {
+  reply_count: number;
+  last_reply_id: string | null;
+}
+
+export function queryMessages(db: Database, channel: string, opts: { last?: number; since?: string; search?: string; mention?: string; flat?: boolean } = {}): Message[] | ThreadedMessage[] {
   const conds = ["channel = ?"];
   const params: any[] = [channel];
+
+  if (!opts.flat && !opts.search && !opts.mention) {
+    conds.push("reply_to IS NULL");
+  }
 
   if (opts.since) {
     conds.push("id > ?");
@@ -105,15 +114,18 @@ export function queryMessages(db: Database, channel: string, opts: { last?: numb
   }
 
   const where = conds.join(" AND ");
+  const threadSelect = !opts.flat && !opts.search && !opts.mention
+    ? `, (SELECT COUNT(*) FROM messages r WHERE r.reply_to = m.id) as reply_count, (SELECT r2.id FROM messages r2 WHERE r2.reply_to = m.id ORDER BY r2.id DESC LIMIT 1) as last_reply_id`
+    : "";
 
   if (opts.last) {
     return db.prepare(
-      `SELECT * FROM (SELECT * FROM messages WHERE ${where} ORDER BY id DESC LIMIT ?) ORDER BY id ASC`
+      `SELECT * FROM (SELECT m.*${threadSelect} FROM messages m WHERE ${where} ORDER BY m.id DESC LIMIT ?) ORDER BY id ASC`
     ).all(...params, opts.last) as Message[];
   }
 
   return db.prepare(
-    `SELECT * FROM messages WHERE ${where} ORDER BY id ASC`
+    `SELECT m.*${threadSelect} FROM messages m WHERE ${where} ORDER BY m.id ASC`
   ).all(...params) as Message[];
 }
 
@@ -137,10 +149,18 @@ export function ensureChannel(db: Database, name: string): void {
   db.run("INSERT OR IGNORE INTO channels (name) VALUES (?)", [name]);
 }
 
-export function getThread(db: Database, messageId: string): { root: Message | null; replies: Message[] } {
+export function resolveThreadRoot(db: Database, replyTo: string): string {
+  const target = db.prepare("SELECT reply_to FROM messages WHERE id = ?").get(replyTo) as { reply_to: string | null } | null;
+  return target?.reply_to || replyTo;
+}
+
+export function getThread(db: Database, messageId: string): { root: Message | null; replies: Message[]; participants: string[]; reply_count: number } {
   const root = db.prepare("SELECT * FROM messages WHERE id = ?").get(messageId) as Message | null;
   const replies = db.prepare("SELECT * FROM messages WHERE reply_to = ? ORDER BY id ASC").all(messageId) as Message[];
-  return { root, replies };
+  const participantSet = new Set<string>();
+  if (root) participantSet.add(parseAuthor(root.author).name);
+  for (const r of replies) participantSet.add(parseAuthor(r.author).name);
+  return { root, replies, participants: [...participantSet], reply_count: replies.length };
 }
 
 export function getMessage(db: Database, messageId: string): Message | null {

@@ -353,6 +353,30 @@
       word-break: break-word;
     }
 
+    .thread-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 4px 0;
+      font-weight: 500;
+    }
+    .thread-badge:hover { text-decoration: underline; }
+
+    .thread-replies {
+      border-left: 2px solid var(--border);
+      margin: 4px 0 4px 20px;
+      padding-left: 12px;
+    }
+    .thread-replies .message {
+      padding: 4px 0;
+      border-bottom: none;
+    }
+    .thread-replies .message:last-child { padding-bottom: 0; }
+    .thread-replies .msg-avatar { width: 24px; height: 24px; font-size: 10px; }
+
     .mention {
       color: var(--accent);
       font-weight: 600;
@@ -898,6 +922,12 @@
       return el('div', { className: 'message', 'data-id': msg.id }, [avatar, body]);
     }
 
+    function getThreadReplies(rootId) {
+      return state.messages.filter(function(m) {
+        return m.reply_to === rootId;
+      });
+    }
+
     function renderMessages() {
       var container = document.getElementById('messages');
       while (container.firstChild) container.removeChild(container.firstChild);
@@ -913,16 +943,67 @@
         return;
       }
 
-      channelMsgs.forEach(function(msg) {
-        container.appendChild(createMessageEl(msg));
+      // Build root-only view: hide messages that have reply_to
+      var rootMsgs = channelMsgs.filter(function(m) { return !m.reply_to; });
+
+      rootMsgs.forEach(function(msg) {
+        var msgEl = createMessageEl(msg);
+        var replies = getThreadReplies(msg.id);
+        if (replies.length > 0) {
+          var badge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.id }, [
+            replies.length + (replies.length === 1 ? ' reply' : ' replies')
+          ]);
+          msgEl.querySelector('.msg-body').appendChild(badge);
+        }
+        container.appendChild(msgEl);
       });
       scrollToBottom();
+    }
+
+    function toggleThread(rootId) {
+      var existing = document.querySelector('[data-thread-container="' + rootId + '"]');
+      if (existing) {
+        existing.remove();
+        return;
+      }
+      var badge = document.querySelector('[data-thread-toggle="' + rootId + '"]');
+      if (!badge) return;
+      var replies = getThreadReplies(rootId);
+      var threadContainer = el('div', { className: 'thread-replies', 'data-thread-container': rootId });
+      replies.forEach(function(r) {
+        threadContainer.appendChild(createMessageEl(r));
+      });
+      badge.parentNode.insertBefore(threadContainer, badge.nextSibling);
     }
 
     function appendMessage(msg) {
       var container = document.getElementById('messages');
       var empty = container.querySelector('.empty-state');
       if (empty) container.removeChild(empty);
+
+      if (msg.reply_to) {
+        // Update thread badge count or add one
+        var parentEl = container.querySelector('[data-id="' + msg.reply_to + '"]');
+        if (parentEl) {
+          var badge = parentEl.querySelector('[data-thread-toggle]');
+          var replies = getThreadReplies(msg.reply_to);
+          if (badge) {
+            badge.textContent = replies.length + (replies.length === 1 ? ' reply' : ' replies');
+            // If thread is expanded, append the new reply
+            var threadContainer = document.querySelector('[data-thread-container="' + msg.reply_to + '"]');
+            if (threadContainer) {
+              threadContainer.appendChild(createMessageEl(msg));
+            }
+          } else {
+            var newBadge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.reply_to }, [
+              replies.length + (replies.length === 1 ? ' reply' : ' replies')
+            ]);
+            parentEl.querySelector('.msg-body').appendChild(newBadge);
+          }
+        }
+        return;
+      }
+
       container.appendChild(createMessageEl(msg));
     }
 
@@ -965,6 +1046,11 @@
     // --- Event delegation ---
 
     document.getElementById('messages').addEventListener('click', function(e) {
+      var threadToggle = e.target.closest('[data-thread-toggle]');
+      if (threadToggle) {
+        toggleThread(threadToggle.getAttribute('data-thread-toggle'));
+        return;
+      }
       var replyBtn = e.target.closest('[data-reply-btn]');
       if (replyBtn) {
         startReply(replyBtn.getAttribute('data-reply-btn'));
