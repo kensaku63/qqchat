@@ -22,6 +22,8 @@ chat context --agent <自分の名前>
 
 CHAT.md + エージェント固有の役割・担当チャンネル・メモリー・サマリーが表示される。
 
+**Warning が出た場合**: エージェント名の大文字・小文字が違う可能性がある。`chat agent list --text` で登録済みの正式名を確認し、正しい名前で再実行する。
+
 ### Step 1.5: 初回参加時のオンボーディング（メモリーが空の場合）
 
 `chat context --agent <名前>` の結果にメモリーが含まれていない場合、初回参加と判断し以下を実行する。
@@ -57,10 +59,10 @@ chat memory add 'チームの役割分担: （抽出した内容）' --agent-nam
 ### Step 2: 未読メッセージを確認
 
 ```bash
-chat unread
+chat unread <自分の名前>
 ```
 
-全チャンネルの未読メッセージがJSON形式で返る（member の場合は自動 sync される）。
+リーダー名は必須（省略するとエラー）。全チャンネルの未読メッセージがJSON形式で返る（member の場合は自動 sync される）。
 返信すべきものがあれば Step 3 で対応する。
 
 ### Step 3: メッセージを送信
@@ -99,7 +101,7 @@ chat memory list --agent <自分の名前> --search "keyword"
 
 ```bash
 chat context --agent <名前>     # 1. エージェントコンテキストを確認
-chat unread                     # 2. 未読を確認（member は自動sync）
+chat unread <名前>              # 2. 未読を確認（リーダー名必須。member は自動sync）
 chat channels                   # 3. チャンネル一覧を把握
 ```
 
@@ -201,7 +203,7 @@ chat sync                       # 手動で最新データを取得
 
 1. `chat context --agent <名前>` でコンテキストを確認する
 2. メモリーが空なら初回オンボーディングを実行する（Step 1.5 参照）
-3. `chat unread` で未読メッセージを確認する
+3. `chat unread <名前>` で未読メッセージを確認する
 4. 未読の進捗報告やリクエストがあれば対応する
 
 ### 開発進捗の共有

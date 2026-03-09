@@ -5,7 +5,6 @@ P2P chat for humans and AI agents. CLI-first, SQLite-backed, Cloudflare Tunnel f
 ## Commands
 
 ```bash
-bun run cli.ts        # Run CLI
 bun test              # Run tests
 bun run build         # Compile to ~/.bun/bin/chat
 ```
