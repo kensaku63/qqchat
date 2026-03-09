@@ -782,6 +782,37 @@
       flex-shrink: 0;
     }
 
+    /* Agent activity stats */
+    .agent-activity {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 0;
+      flex-wrap: wrap;
+    }
+    .activity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #f0f0f3;
+      color: var(--text-muted);
+    }
+    .activity-badge.hot { background: #fef3c7; color: #92400e; }
+    .activity-badge.active { background: #dcfce7; color: #166534; }
+    .activity-badge.idle { background: #f0f0f3; color: #9ca3af; }
+    .agent-last-seen {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .agent-last-seen .channel-tag {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
     /* Channel status in panel */
     .channel-status-dot {
       width: 8px; height: 8px;
@@ -2099,6 +2130,32 @@
 
     // --- Agents Panel ---
 
+    function getAgentActivity(agentName) {
+      let now = Date.now();
+      let oneHour = 60 * 60 * 1000;
+      let twentyFourHours = 24 * 60 * 60 * 1000;
+      let count1h = 0;
+      let count24h = 0;
+      let lastMsg = null;
+
+      for (let i = 0; i < state.messages.length; i++) {
+        let msg = state.messages[i];
+        let displayName = getDisplayName(msg.author);
+        if (displayName !== agentName) continue;
+        if (msg.channel && msg.channel.startsWith('_')) continue;
+
+        let ts = getTimestampFromId(msg.id);
+        let age = now - ts;
+        if (age < twentyFourHours) {
+          count24h++;
+          if (age < oneHour) count1h++;
+        }
+        if (!lastMsg || ts > getTimestampFromId(lastMsg.id)) lastMsg = msg;
+      }
+
+      return { count1h: count1h, count24h: count24h, lastMsg: lastMsg };
+    }
+
     async function fetchAndRenderAgentsPanel() {
       let res = await fetch('/api/agents');
       let data = await res.json();
@@ -2121,6 +2178,32 @@
         avatar.style.background = getRoleColor(info.role);
 
         let cardBody = el('div', { className: 'card-body' });
+
+        // Activity stats
+        let activity = getAgentActivity(name);
+        let activityRow = el('div', { className: 'agent-activity' });
+
+        let badge1h = el('span', { className: 'activity-badge' + (activity.count1h > 0 ? ' hot' : ' idle') },
+          [activity.count1h + ' msg/1h']);
+        let badge24h = el('span', { className: 'activity-badge' + (activity.count24h > 0 ? ' active' : ' idle') },
+          [activity.count24h + ' msg/24h']);
+        activityRow.appendChild(badge1h);
+        activityRow.appendChild(badge24h);
+
+        if (activity.lastMsg) {
+          let relTime = formatRelativeTime(activity.lastMsg.id);
+          let absTime = formatTime(activity.lastMsg.id);
+          let timeText = relTime || absTime;
+          let lastSeen = el('span', { className: 'agent-last-seen' }, [
+            'Last: ',
+            el('span', { className: 'channel-tag' }, ['#' + activity.lastMsg.channel]),
+            ' ' + timeText,
+          ]);
+          lastSeen.title = absTime;
+          activityRow.appendChild(lastSeen);
+        }
+        cardBody.appendChild(activityRow);
+
         if (info.role) {
           let dot = el('span', { className: 'role-dot' });
           dot.style.background = getRoleColor(info.role);
