@@ -15,13 +15,13 @@ bun run build         # Compile to ~/.bun/bin/chat
 ```
 cli.ts          CLI entry point, all commands
 src/server.ts   HTTP/WebSocket server (Bun.serve), standby/tunnel
-src/db.ts       SQLite schema, queries, message/task/memory/summary
-src/config.ts   File-based config (.chat/config.json, agents.json, channels.json)
-src/sync.ts     Upstream sync, message send (fallback chain)
+src/db.ts       SQLite schema, queries, all data operations
+src/config.ts   Node-local config (.chat/config.json)
+src/sync.ts     Upstream sync (message-based, single endpoint)
 web/index.html  Read-only monitoring UI (single file)
 ```
 
-Data lives in `.chat/` dir: `config.json`, `chat.db`, `agents.json`, `channels.json`.
+Data lives in `.chat/` dir: `config.json` (node-local), `chat.db` (all shared data).
 
 ## Design Principles
 
@@ -33,8 +33,16 @@ Data lives in `.chat/` dir: `config.json`, `chat.db`, `agents.json`, `channels.j
 
 ## Key Patterns
 
+- All shared data lives in `messages` table. System data uses `_system` channel with metadata JSON keys:
+  - `$.agent_config` — agent registration/updates
+  - `$.channel_config` — channel settings
+  - `$.memory` — agent memories
+  - `$.summary` — channel summaries
+  - `$.task` / `$.task_update` — tasks
+- Config changes are append-only messages in `_system` channel, resolved by name (latest wins)
+- Sync uses single `/api/sync` endpoint for all data
+- File edits: only `config.json` (node-local). All shared data via CLI.
 - Output is JSON by default, `--text` for human-readable. Never break JSON output.
 - Author format: `"kensaku"` (human), `"agent:Opus@kensaku"` (named agent), `"agent@kensaku"` (anonymous agent)
 - Message IDs: `{base36_timestamp}_{random}` — sortable, globally unique
 - Owner runs the server. Members sync from upstream. Backup owners provide failover.
-- All config is file-based JSON. No env vars, no database config tables.

@@ -1,5 +1,5 @@
 import { openDb, insertMessages, insertMessage, ensureChannel, ensureMember, generateId, type Message } from "./db";
-import { readConfig, readSyncCursor, writeSyncCursor, writeChannelsMeta, writeAgentsConfig, type ChatConfig } from "./config";
+import { readConfig, readSyncCursor, writeSyncCursor, type ChatConfig } from "./config";
 
 // upstreamとbackup_ownersを順番に返す（重複除外）
 export function getUpstreamUrls(config: ChatConfig): string[] {
@@ -33,7 +33,7 @@ export async function sync(chatDir: string): Promise<{ newMessages: number; newC
 
       const data = await res.json() as {
         messages: Message[];
-        channels: { name: string; description: string; created_at: string }[];
+        channels: { name: string; created_at: string }[];
         cursor: string;
       };
 
@@ -41,29 +41,13 @@ export async function sync(chatDir: string): Promise<{ newMessages: number; newC
 
       let newChannels = 0;
       for (const ch of data.channels) {
-        const r = db.run("INSERT OR IGNORE INTO channels (name, description) VALUES (?, ?)", [ch.name, ch.description || ""]);
+        const r = db.run("INSERT OR IGNORE INTO channels (name) VALUES (?)", [ch.name]);
         if (r.changes > 0) newChannels++;
       }
 
       const inserted = insertMessages(db, data.messages);
       writeSyncCursor(chatDir, data.cursor);
       db.close();
-
-      // Sync channels.json and agents.json from upstream
-      try {
-        const [chRes, agRes] = await Promise.all([
-          fetch(`${url}/api/channels/meta`, { signal: AbortSignal.timeout(5000) }),
-          fetch(`${url}/api/agents`, { signal: AbortSignal.timeout(5000) }),
-        ]);
-        if (chRes.ok) {
-          const chData = (await chRes.json()) as { channels: any };
-          if (chData.channels) writeChannelsMeta(chatDir, chData.channels);
-        }
-        if (agRes.ok) {
-          const agData = (await agRes.json()) as { agents: any };
-          if (agData.agents) writeAgentsConfig(chatDir, agData.agents);
-        }
-      } catch {}
 
       if (url !== config.upstream) {
         console.log(`  (フォールバック: ${url} から同期)`);

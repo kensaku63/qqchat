@@ -2,8 +2,8 @@
 import { resolve, join, basename } from "node:path";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
-import { findChatDir, requireChatDir, readConfig, writeConfig, readChannelsMeta, writeChannelsMeta, readAgentsConfig, writeAgentsConfig, type ChatConfig, type ChannelsConfig, type AgentsConfig } from "./src/config";
-import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMemories, getSummaries, resolveThreadRoot, type ThreadedMessage } from "./src/db";
+import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig } from "./src/config";
+import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMemories, getSummaries, resolveThreadRoot, generateId, insertMessage, getAgentConfigs, getChannelConfigs, type ThreadedMessage, type AgentConfigData } from "./src/db";
 import { sync, sendToUpstream, getUpstreamUrls } from "./src/sync";
 import { readReadCursor, writeReadCursor } from "./src/config";
 import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, startStandbyMode, syncFromBackups } from "./src/server";
@@ -85,11 +85,16 @@ async function cmdInit(args: string[]) {
   };
   mkdirSync(chatDir, { recursive: true });
   writeConfig(chatDir, config);
-  writeChannelsMeta(chatDir, { general: { description: "General discussion", status: "active" } });
-  writeAgentsConfig(chatDir, {});
 
   const db = openDb(chatDir);
-  createChannel(db, "general", "General discussion");
+  createChannel(db, "general");
+  insertMessage(db, {
+    id: generateId(),
+    channel: "_system",
+    author: identity,
+    content: "Configure channel: general",
+    metadata: JSON.stringify({ channel_config: { name: "general", description: "General discussion", status: "active" } }),
+  });
   db.close();
 
   // Create CHAT.md in project root
@@ -361,48 +366,45 @@ async function cmdChannels(args: string[]) {
   const config = readConfig(chatDir);
   const { flags } = parseArgs(args);
 
-  // Sync only when explicitly requested
   if (flags.sync && config.upstream) {
     await sync(chatDir);
   }
-  const db = openDb(chatDir);
-  const channels = getChannels(db);
-  db.close();
 
-  // Merge channels.json metadata
-  let channelsMeta: ChannelsConfig = {};
-  const chUrls = getUpstreamUrls(config);
-  if (chUrls.length > 0) {
-    for (const url of chUrls) {
+  const urls = getUpstreamUrls(config);
+  let merged: { name: string; description: string; status: string; created_at: string }[] = [];
+
+  if (urls.length > 0) {
+    for (const url of urls) {
       try {
-        const res = await fetch(`${url}/api/channels/meta`, { signal: AbortSignal.timeout(5000) });
-        if (res.ok) { channelsMeta = ((await res.json()) as any).channels || {}; break; }
+        const res = await fetch(`${url}/api/channels`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) { merged = ((await res.json()) as any).channels || []; break; }
       } catch { continue; }
     }
   } else {
-    channelsMeta = readChannelsMeta(chatDir);
+    const db = openDb(chatDir);
+    const channels = getChannels(db);
+    const configs = getChannelConfigs(db);
+    merged = channels.map(ch => ({
+      ...ch,
+      description: configs[ch.name]?.description || "",
+      status: configs[ch.name]?.status || "active",
+    }));
+    db.close();
   }
 
   if (flags.text) {
-    if (channels.length === 0) {
+    if (merged.length === 0) {
       console.log("No channels.");
       return;
     }
-    for (const ch of channels) {
-      const meta = channelsMeta[ch.name];
-      const status = meta?.status ? ` (${meta.status})` : "";
-      const desc = meta?.description || ch.description;
-      const descText = desc ? ` - ${desc}` : "";
+    for (const ch of merged) {
+      const status = ch.status ? ` (${ch.status})` : "";
+      const descText = ch.description ? ` - ${ch.description}` : "";
       console.log(`  #${ch.name}${status}${descText}`);
     }
     return;
   }
 
-  // Merge meta into channel objects
-  const merged = channels.map(ch => ({
-    ...ch,
-    ...(channelsMeta[ch.name] || {}),
-  }));
   console.log(JSON.stringify(merged, null, 2));
 }
 
@@ -420,7 +422,6 @@ async function cmdChannelCreate(args: string[]) {
   const config = readConfig(chatDir);
 
   if (config.upstream) {
-    // Member: create on upstream
     const res = await fetch(`${config.upstream}/api/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -429,9 +430,15 @@ async function cmdChannelCreate(args: string[]) {
     if (!res.ok) throw new Error(`Failed to create channel: ${res.statusText}`);
     await sync(chatDir);
   } else {
-    // Owner: create locally
     const db = openDb(chatDir);
-    createChannel(db, name, description);
+    createChannel(db, name);
+    insertMessage(db, {
+      id: generateId(),
+      channel: "_system",
+      author: config.identity,
+      content: `Configure channel: ${name}`,
+      metadata: JSON.stringify({ channel_config: { name, description, status: "active" } }),
+    });
     db.close();
   }
 
@@ -707,7 +714,6 @@ async function cmdAgent(args: string[]) {
     const channels = flags.channels ? (flags.channels as string).split(",") : [];
 
     if (config.upstream) {
-      // Member: POST to upstream
       const urls = getUpstreamUrls(config);
       let sent = false;
       for (const url of urls) {
@@ -723,10 +729,8 @@ async function cmdAgent(args: string[]) {
       }
       if (!sent) { console.error("Error: Failed to register agent on upstream"); process.exit(1); }
     } else {
-      // Owner: write to agents.json directly
-      const agents = readAgentsConfig(chatDir);
-      agents[name] = { role, description, channels };
-      writeAgentsConfig(chatDir, agents);
+      const metadata = JSON.stringify({ agent_config: { name, role, description, channels } });
+      await sendToUpstream(chatDir, "_system", config.identity, `Register agent: ${name}`, undefined, metadata);
     }
     console.log(`Agent registered: ${name} (${role || "no role"})`);
 
@@ -735,7 +739,7 @@ async function cmdAgent(args: string[]) {
     const chatDir = requireChatDir();
     const config = readConfig(chatDir);
 
-    let agents: AgentsConfig = {};
+    let agents: Record<string, AgentConfigData> = {};
     const agentUrls = getUpstreamUrls(config);
     if (agentUrls.length > 0) {
       for (const url of agentUrls) {
@@ -745,7 +749,9 @@ async function cmdAgent(args: string[]) {
         } catch { continue; }
       }
     } else {
-      agents = readAgentsConfig(chatDir);
+      const db = openDb(chatDir);
+      agents = getAgentConfigs(db);
+      db.close();
     }
 
     const entries = Object.entries(agents);
@@ -769,7 +775,6 @@ async function cmdAgent(args: string[]) {
     const config = readConfig(chatDir);
 
     if (config.upstream) {
-      // Member: DELETE on upstream
       const urls = getUpstreamUrls(config);
       for (const url of urls) {
         try {
@@ -781,9 +786,8 @@ async function cmdAgent(args: string[]) {
         } catch { continue; }
       }
     } else {
-      const agents = readAgentsConfig(chatDir);
-      delete agents[name];
-      writeAgentsConfig(chatDir, agents);
+      const metadata = JSON.stringify({ agent_config: { name, removed: true } });
+      await sendToUpstream(chatDir, "_system", config.identity, `Remove agent: ${name}`, undefined, metadata);
     }
     console.log(`Agent removed: ${name}`);
 
@@ -820,7 +824,6 @@ async function cmdContext(args: string[]) {
   }
 
   if (!agentName) {
-    // Enhanced: CHAT.md + channels + agents
     const output: string[] = [];
     if (chatMdContent) {
       output.push(chatMdContent);
@@ -829,30 +832,32 @@ async function cmdContext(args: string[]) {
     }
 
     // Channels
-    let channelsMeta: ChannelsConfig = {};
+    let channelsList: { name: string; description: string; status: string }[] = [];
     if (contextUrls.length > 0) {
       for (const url of contextUrls) {
         try {
-          const res = await fetch(`${url}/api/channels/meta`, { signal: AbortSignal.timeout(5000) });
-          if (res.ok) { channelsMeta = ((await res.json()) as any).channels || {}; break; }
+          const res = await fetch(`${url}/api/channels`, { signal: AbortSignal.timeout(5000) });
+          if (res.ok) { channelsList = ((await res.json()) as any).channels || []; break; }
         } catch { continue; }
       }
     } else {
-      channelsMeta = readChannelsMeta(chatDir);
+      const db2 = openDb(chatDir);
+      const configs = getChannelConfigs(db2);
+      channelsList = Object.values(configs);
+      db2.close();
     }
 
-    const chEntries = Object.entries(channelsMeta);
-    if (chEntries.length > 0) {
+    if (channelsList.length > 0) {
       output.push("\n## Channels\n");
       output.push("| Channel | Status | Description |");
       output.push("|---------|--------|-------------|");
-      for (const [name, meta] of chEntries) {
-        output.push(`| ${name} | ${meta.status} | ${meta.description} |`);
+      for (const ch of channelsList) {
+        output.push(`| ${ch.name} | ${ch.status} | ${ch.description} |`);
       }
     }
 
     // Agents
-    let agentsConf: AgentsConfig = {};
+    let agentsConf: Record<string, AgentConfigData> = {};
     if (contextUrls.length > 0) {
       for (const url of contextUrls) {
         try {
@@ -861,7 +866,9 @@ async function cmdContext(args: string[]) {
         } catch { continue; }
       }
     } else {
-      agentsConf = readAgentsConfig(chatDir);
+      const db2 = openDb(chatDir);
+      agentsConf = getAgentConfigs(db2);
+      db2.close();
     }
 
     const agEntries = Object.entries(agentsConf);
@@ -881,14 +888,12 @@ async function cmdContext(args: string[]) {
   // Enhanced context for specific agent
   const output: string[] = [];
 
-  // L1: CHAT.md
   if (chatMdContent) {
     output.push("## Project Context (CHAT.md)\n");
     output.push(chatMdContent);
   }
 
-  // L1: Agent registration info (from agents.json)
-  let agentsConf2: AgentsConfig = {};
+  let agentsConf2: Record<string, AgentConfigData> = {};
   for (const url of contextUrls) {
     try {
       const res = await fetch(`${url}/api/agents`, { signal: AbortSignal.timeout(5000) });
@@ -896,7 +901,9 @@ async function cmdContext(args: string[]) {
     } catch { continue; }
   }
   if (Object.keys(agentsConf2).length === 0) {
-    agentsConf2 = readAgentsConfig(chatDir);
+    const db2 = openDb(chatDir);
+    agentsConf2 = getAgentConfigs(db2);
+    db2.close();
   }
   const agentInfo = agentsConf2[agentName];
   if (!agentInfo) {
@@ -971,7 +978,7 @@ async function cmdMemory(args: string[]) {
     const tags = flags.tag ? [(flags.tag as string)] : [];
     const metadata = JSON.stringify({ memory: { tags } });
 
-    await sendToUpstream(chatDir, "_memory", author, content, undefined, metadata);
+    await sendToUpstream(chatDir, "_system", author, content, undefined, metadata);
     console.log("ok");
 
   } else if (sub === "list") {
@@ -1035,7 +1042,7 @@ async function cmdSummary(args: string[]) {
     const messageCount = flags.count ? parseInt(flags.count as string) : 0;
     const metadata = JSON.stringify({ summary: { channel, period, message_count: messageCount } });
 
-    await sendToUpstream(chatDir, "_summary", author, content, undefined, metadata);
+    await sendToUpstream(chatDir, "_system", author, content, undefined, metadata);
     console.log("ok");
 
   } else if (sub === "list") {

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
+import { existsSync, readFileSync, writeFileSync, renameSync } from "node:fs";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS channels (
@@ -53,6 +54,10 @@ export function openDb(chatDir: string): Database {
   } catch {
     // Column already exists
   }
+  db.run("INSERT OR IGNORE INTO channels (name) VALUES ('_system')");
+
+  runMigrations(db, chatDir);
+
   return db;
 }
 
@@ -137,12 +142,12 @@ export function getAllMessages(db: Database): Message[] {
   return db.prepare("SELECT * FROM messages ORDER BY id ASC").all() as Message[];
 }
 
-export function getChannels(db: Database): { name: string; description: string; created_at: string }[] {
-  return db.prepare("SELECT * FROM channels ORDER BY name").all() as any[];
+export function getChannels(db: Database): { name: string; created_at: string }[] {
+  return db.prepare("SELECT * FROM channels WHERE name != '_system' ORDER BY name").all() as any[];
 }
 
-export function createChannel(db: Database, name: string, description = ""): void {
-  db.run("INSERT OR IGNORE INTO channels (name, description) VALUES (?, ?)", [name, description]);
+export function createChannel(db: Database, name: string): void {
+  db.run("INSERT OR IGNORE INTO channels (name) VALUES (?)", [name]);
 }
 
 export function ensureChannel(db: Database, name: string): void {
@@ -375,5 +380,162 @@ export function getSummaries(db: Database, channel?: string, last?: number): Sum
   return (db.prepare(
     `SELECT * FROM messages WHERE ${where} ORDER BY id ASC`
   ).all(...params) as Message[]).map(toSummary).filter((s): s is Summary => s !== null);
+}
+
+// --- Agent / Channel Config (via _system channel) ---
+
+export interface AgentConfigData {
+  name: string;
+  role: string;
+  description: string;
+  channels: string[];
+  removed?: boolean;
+}
+
+export interface ChannelConfigData {
+  name: string;
+  description: string;
+  status: "active" | "paused" | "archived";
+}
+
+export function getAgentConfigs(db: Database): Record<string, AgentConfigData> {
+  const msgs = db.prepare(
+    "SELECT * FROM messages WHERE channel = '_system' AND json_valid(metadata) AND json_extract(metadata, '$.agent_config') IS NOT NULL ORDER BY id ASC"
+  ).all() as Message[];
+
+  const result: Record<string, AgentConfigData> = {};
+  for (const msg of msgs) {
+    try {
+      const meta = JSON.parse(msg.metadata!);
+      const cfg = meta.agent_config;
+      if (!cfg?.name) continue;
+      if (cfg.removed) {
+        delete result[cfg.name];
+      } else {
+        result[cfg.name] = {
+          name: cfg.name,
+          role: cfg.role || "",
+          description: cfg.description || "",
+          channels: cfg.channels || [],
+        };
+      }
+    } catch {}
+  }
+  return result;
+}
+
+export function getChannelConfigs(db: Database): Record<string, ChannelConfigData> {
+  const msgs = db.prepare(
+    "SELECT * FROM messages WHERE channel = '_system' AND json_valid(metadata) AND json_extract(metadata, '$.channel_config') IS NOT NULL ORDER BY id ASC"
+  ).all() as Message[];
+
+  const result: Record<string, ChannelConfigData> = {};
+  for (const msg of msgs) {
+    try {
+      const meta = JSON.parse(msg.metadata!);
+      const cfg = meta.channel_config;
+      if (!cfg?.name) continue;
+      result[cfg.name] = {
+        name: cfg.name,
+        description: cfg.description || "",
+        status: cfg.status || "active",
+      };
+    } catch {}
+  }
+
+  // Fill in channels that exist in the DB but have no channel_config message
+  const channels = db.prepare("SELECT name FROM channels WHERE name != '_system' ORDER BY name").all() as { name: string }[];
+  for (const ch of channels) {
+    if (!result[ch.name]) {
+      result[ch.name] = { name: ch.name, description: "", status: "active" };
+    }
+  }
+
+  return result;
+}
+
+// --- Migration ---
+
+function runMigrations(db: Database, chatDir: string): void {
+  const configPath = join(chatDir, "config.json");
+  let identity = "system";
+  try {
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    identity = config.identity || "system";
+  } catch {}
+
+  db.transaction(() => {
+    // 1. Migrate legacy config.json agents field
+    try {
+      const config = JSON.parse(readFileSync(configPath, "utf-8"));
+      if (config.agents && Array.isArray(config.agents) && config.agents.length > 0) {
+        for (const a of config.agents) {
+          insertMessage(db, {
+            id: generateId(),
+            channel: "_system",
+            author: identity,
+            content: `Register agent: ${a.name}`,
+            metadata: JSON.stringify({ agent_config: { name: a.name, role: a.role || "", description: "", channels: a.channels || [] } }),
+          });
+        }
+        delete config.agents;
+        writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+      }
+    } catch {}
+
+    // 2. Migrate agents.json
+    const agentsPath = join(chatDir, "agents.json");
+    const agentsBakPath = join(chatDir, "agents.json.bak");
+    if (existsSync(agentsPath) && !existsSync(agentsBakPath)) {
+      try {
+        const agents = JSON.parse(readFileSync(agentsPath, "utf-8"));
+        for (const [name, a] of Object.entries(agents) as [string, any][]) {
+          insertMessage(db, {
+            id: generateId(),
+            channel: "_system",
+            author: identity,
+            content: `Register agent: ${name}`,
+            metadata: JSON.stringify({ agent_config: { name, role: a.role || "", description: a.description || "", channels: a.channels || [] } }),
+          });
+        }
+        renameSync(agentsPath, agentsBakPath);
+      } catch {}
+    }
+
+    // 3. Migrate channels.json
+    const channelsPath = join(chatDir, "channels.json");
+    const channelsBakPath = join(chatDir, "channels.json.bak");
+    if (existsSync(channelsPath) && !existsSync(channelsBakPath)) {
+      try {
+        const channels = JSON.parse(readFileSync(channelsPath, "utf-8"));
+        for (const [name, c] of Object.entries(channels) as [string, any][]) {
+          insertMessage(db, {
+            id: generateId(),
+            channel: "_system",
+            author: identity,
+            content: `Configure channel: ${name}`,
+            metadata: JSON.stringify({ channel_config: { name, description: c.description || "", status: c.status || "active" } }),
+          });
+        }
+        renameSync(channelsPath, channelsBakPath);
+      } catch {}
+    }
+
+    // 4. Move _memory/_summary messages to _system
+    db.run("UPDATE messages SET channel = '_system' WHERE channel IN ('_memory', '_summary')");
+
+    // 5. Remove _memory/_summary channels
+    db.run("DELETE FROM channels WHERE name IN ('_memory', '_summary')");
+
+    // 6. Drop description column from channels (SQLite doesn't support ALTER TABLE DROP COLUMN in older versions)
+    const cols = db.prepare("PRAGMA table_info(channels)").all() as { name: string }[];
+    const hasDescription = cols.some(c => c.name === "description");
+    if (hasDescription) {
+      db.run("CREATE TABLE IF NOT EXISTS channels_new (name TEXT PRIMARY KEY, created_at TEXT NOT NULL DEFAULT (datetime('now')))");
+      db.run("INSERT OR IGNORE INTO channels_new (name, created_at) SELECT name, created_at FROM channels");
+      db.run("DROP TABLE channels");
+      db.run("ALTER TABLE channels_new RENAME TO channels");
+    }
+  })();
 }
 

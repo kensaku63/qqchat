@@ -654,7 +654,6 @@
       messages: [],
       members: [],
       agents: {},
-      channelsMeta: {},
       currentChannel: 'general',
       replyTo: null,
       ws: null,
@@ -789,12 +788,6 @@
       renderAgents();
     }
 
-    async function fetchChannelsMeta() {
-      var res = await fetch('/api/channels/meta');
-      var data = await res.json();
-      state.channelsMeta = data.channels || {};
-    }
-
     async function fetchMessages() {
       var res = await fetch('/api/sync');
       var data = await res.json();
@@ -866,8 +859,9 @@
 
       ws.onmessage = function(e) {
         var data = JSON.parse(e.data);
-        if (data.type === 'channel') {
-          fetchChannels();
+        if (data.type === 'channels') {
+          state.channels = data.channels || [];
+          renderChannels();
         }
         if (data.type === 'members') {
           state.members = data.members.map(function(m) { return m.name; });
@@ -875,10 +869,6 @@
         if (data.type === 'agents') {
           state.agents = data.agents || {};
           renderAgents();
-        }
-        if (data.type === 'channels_meta') {
-          state.channelsMeta = data.channels || {};
-          renderChannels();
         }
         if (data.type === 'msg') {
           if (state.messages.some(function(m) { return m.id === data.id; })) return;
@@ -918,14 +908,13 @@
       var list = document.getElementById('channel-list');
       while (list.firstChild) list.removeChild(list.firstChild);
       state.channels.forEach(function(ch) {
-        var meta = state.channelsMeta[ch.name];
         var item = el('div', {
           className: 'channel-item' + (ch.name === state.currentChannel ? ' active' : ''),
         }, [
           ch.name,
-          meta && meta.status ? el('span', {
-            className: 'channel-status ' + meta.status,
-            title: (meta.description || '') + ' (' + meta.status + ')',
+          ch.status ? el('span', {
+            className: 'channel-status ' + ch.status,
+            title: (ch.description || '') + ' (' + ch.status + ')',
           }) : null,
         ]);
         item.addEventListener('click', function() { switchChannel(ch.name); });
@@ -1336,18 +1325,21 @@
       panel.appendChild(el('h2', {}, ['Loading...']));
       document.getElementById('context-overlay').classList.add('visible');
 
-      // Fetch all data in parallel
       var results = await Promise.all([
         fetch('/api/context').then(function(r) { return r.json(); }),
+        fetch('/api/channels').then(function(r) { return r.json(); }).catch(function() { return { channels: [] }; }),
+        fetch('/api/agents').then(function(r) { return r.json(); }).catch(function() { return { agents: {} }; }),
         fetch('/api/tasks').then(function(r) { return r.json(); }).catch(function() { return { tasks: [] }; }),
         fetch('/api/memories').then(function(r) { return r.json(); }).catch(function() { return { memories: [] }; }),
         fetch('/api/summaries').then(function(r) { return r.json(); }).catch(function() { return { summaries: [] }; }),
       ]);
 
       var data = results[0];
-      var tasks = results[1].tasks || [];
-      var memories = results[2].memories || [];
-      var summaries = results[3].summaries || [];
+      var channelsList = results[1].channels || [];
+      var agentsList = results[2].agents || {};
+      var tasks = results[3].tasks || [];
+      var memories = results[4].memories || [];
+      var summaries = results[5].summaries || [];
 
       while (panel.firstChild) panel.removeChild(panel.firstChild);
       panel.appendChild(el('h2', {}, ['Project Context']));
@@ -1359,26 +1351,23 @@
       }
 
       // Channels
-      var channels = data.channels || {};
-      var chEntries = Object.entries(channels);
-      if (chEntries.length > 0) {
+      if (channelsList.length > 0) {
         panel.appendChild(el('h3', {}, ['Channels']));
         var chTable = el('table', {}, [
           el('tr', {}, [el('th', {}, ['Channel']), el('th', {}, ['Status']), el('th', {}, ['Description'])]),
         ]);
-        chEntries.forEach(function(e) {
+        channelsList.forEach(function(ch) {
           chTable.appendChild(el('tr', {}, [
-            el('td', {}, ['#' + e[0]]),
-            el('td', {}, [e[1].status || '']),
-            el('td', {}, [e[1].description || '']),
+            el('td', {}, ['#' + ch.name]),
+            el('td', {}, [ch.status || '']),
+            el('td', {}, [ch.description || '']),
           ]));
         });
         panel.appendChild(chTable);
       }
 
       // Agents
-      var agents = data.agents || {};
-      var agEntries = Object.entries(agents);
+      var agEntries = Object.entries(agentsList);
       if (agEntries.length > 0) {
         panel.appendChild(el('h3', {}, ['Agents']));
         var agTable = el('table', {}, [
@@ -1487,7 +1476,7 @@
         });
       }
 
-      var footer = el('p', { className: '' }, ['Files: .chat/channels.json, .chat/agents.json']);
+      var footer = el('p', { className: '' }, ['Data: .chat/chat.db (_system channel)']);
       footer.style.marginTop = '16px';
       footer.style.fontSize = '11px';
       footer.style.color = '#999';
@@ -1535,7 +1524,6 @@
       }
       await fetchMembers();
       await fetchAgents();
-      await fetchChannelsMeta();
       await fetchChannels();
       await fetchMessages();
       connectWS();

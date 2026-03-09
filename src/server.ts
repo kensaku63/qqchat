@@ -1,6 +1,6 @@
 import { networkInterfaces } from "node:os";
-import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, getTasks, getMemories, getSummaries, type Message } from "./db";
-import { readConfig, readSyncCursor, readChannelsMeta, writeChannelsMeta, readAgentsConfig, writeAgentsConfig } from "./config";
+import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, getTasks, getMemories, getSummaries, getAgentConfigs, getChannelConfigs, type Message } from "./db";
+import { readConfig, readSyncCursor } from "./config";
 import webHtml from "../web/index.html" with { type: "text" };
 
 function getLocalIp(): string {
@@ -11,6 +11,16 @@ function getLocalIp(): string {
     }
   }
   return "localhost";
+}
+
+function getMergedChannels(db: import("bun:sqlite").Database) {
+  const dbChannels = getChannels(db);
+  const configs = getChannelConfigs(db);
+  return dbChannels.map(ch => ({
+    ...ch,
+    description: configs[ch.name]?.description || "",
+    status: configs[ch.name]?.status || "active",
+  }));
 }
 
 export function startServer(chatDir: string, port: number) {
@@ -68,7 +78,7 @@ export function startServer(chatDir: string, port: number) {
 
       // GET /api/agents
       if (path === "/api/agents" && req.method === "GET") {
-        return Response.json({ agents: readAgentsConfig(chatDir) }, { headers });
+        return Response.json({ agents: getAgentConfigs(db) }, { headers });
       }
 
       // POST /api/agents
@@ -76,13 +86,21 @@ export function startServer(chatDir: string, port: number) {
         let body: { name: string; role?: string; description?: string; channels?: string[] };
         try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
         if (!body.name) return Response.json({ error: "name is required" }, { status: 400, headers });
-        const agents = readAgentsConfig(chatDir);
-        agents[body.name] = {
-          role: body.role || agents[body.name]?.role || "",
-          description: body.description || agents[body.name]?.description || "",
-          channels: body.channels || agents[body.name]?.channels || [],
+        const existing = getAgentConfigs(db)[body.name];
+        const agentConfig = {
+          name: body.name,
+          role: body.role || existing?.role || "",
+          description: body.description || existing?.description || "",
+          channels: body.channels || existing?.channels || [],
         };
-        writeAgentsConfig(chatDir, agents);
+        insertMessage(db, {
+          id: generateId(),
+          channel: "_system",
+          author: config.identity,
+          content: `Register agent: ${body.name}`,
+          metadata: JSON.stringify({ agent_config: agentConfig }),
+        });
+        const agents = getAgentConfigs(db);
         server.publish("chat", JSON.stringify({ type: "agents", agents }));
         return Response.json({ ok: true }, { headers });
       }
@@ -90,30 +108,15 @@ export function startServer(chatDir: string, port: number) {
       // DELETE /api/agents/:name
       if (path.startsWith("/api/agents/") && req.method === "DELETE") {
         const name = decodeURIComponent(path.slice("/api/agents/".length));
-        const agents = readAgentsConfig(chatDir);
-        delete agents[name];
-        writeAgentsConfig(chatDir, agents);
+        insertMessage(db, {
+          id: generateId(),
+          channel: "_system",
+          author: config.identity,
+          content: `Remove agent: ${name}`,
+          metadata: JSON.stringify({ agent_config: { name, removed: true } }),
+        });
+        const agents = getAgentConfigs(db);
         server.publish("chat", JSON.stringify({ type: "agents", agents }));
-        return Response.json({ ok: true }, { headers });
-      }
-
-      // GET /api/channels/meta
-      if (path === "/api/channels/meta" && req.method === "GET") {
-        return Response.json({ channels: readChannelsMeta(chatDir) }, { headers });
-      }
-
-      // POST /api/channels/meta
-      if (path === "/api/channels/meta" && req.method === "POST") {
-        let body: { name: string; description?: string; status?: string };
-        try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
-        if (!body.name) return Response.json({ error: "name is required" }, { status: 400, headers });
-        const channels = readChannelsMeta(chatDir);
-        channels[body.name] = {
-          description: body.description || channels[body.name]?.description || "",
-          status: (body.status as any) || channels[body.name]?.status || "active",
-        };
-        writeChannelsMeta(chatDir, channels);
-        server.publish("chat", JSON.stringify({ type: "channels_meta", channels }));
         return Response.json({ ok: true }, { headers });
       }
 
@@ -123,11 +126,7 @@ export function startServer(chatDir: string, port: number) {
         const { resolve: rs } = require("node:path");
         const chatMdPath = rs(chatDir, "..", "CHAT.md");
         const content = ex(chatMdPath) ? rf(chatMdPath, "utf-8") : null;
-        return Response.json({
-          content,
-          channels: readChannelsMeta(chatDir),
-          agents: readAgentsConfig(chatDir),
-        }, { headers });
+        return Response.json({ content }, { headers });
       }
 
       // GET /api/members
@@ -150,16 +149,30 @@ export function startServer(chatDir: string, port: number) {
 
       // GET /api/channels
       if (path === "/api/channels" && req.method === "GET") {
-        return Response.json({ channels: getChannels(db) }, { headers });
+        return Response.json({ channels: getMergedChannels(db) }, { headers });
       }
 
       // POST /api/channels
       if (path === "/api/channels" && req.method === "POST") {
-        let body: { name: string; description?: string };
+        let body: { name: string; description?: string; status?: string };
         try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
         if (!body.name) return Response.json({ error: "name is required" }, { status: 400, headers });
-        createChannel(db, body.name, body.description ?? "");
-        server.publish("chat", JSON.stringify({ type: "channel", name: body.name, description: body.description ?? "" }));
+        createChannel(db, body.name);
+        const existing = getChannelConfigs(db)[body.name];
+        const channelConfig = {
+          name: body.name,
+          description: body.description ?? existing?.description ?? "",
+          status: body.status ?? existing?.status ?? "active",
+        };
+        insertMessage(db, {
+          id: generateId(),
+          channel: "_system",
+          author: config.identity,
+          content: `Configure channel: ${body.name}`,
+          metadata: JSON.stringify({ channel_config: channelConfig }),
+        });
+        const channels = getMergedChannels(db);
+        server.publish("chat", JSON.stringify({ type: "channels", channels }));
         return Response.json({ ok: true }, { headers });
       }
 
@@ -242,7 +255,7 @@ export function startServer(chatDir: string, port: number) {
 
       // POST /api/merge - バックアップサーバーからのメッセージ一括インポート
       if (path === "/api/merge" && req.method === "POST") {
-        let body: { messages: Message[]; channels: { name: string; description: string }[] };
+        let body: { messages: Message[]; channels: { name: string }[] };
         try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
         for (const ch of body.channels ?? []) {
           ensureChannel(db, ch.name);
@@ -407,7 +420,7 @@ export async function syncFromBackups(chatDir: string): Promise<void> {
 
       const data = await syncRes.json() as {
         messages: Message[];
-        channels: { name: string; description: string }[];
+        channels: { name: string }[];
       };
 
       const mergeDb = openDb(chatDir);
