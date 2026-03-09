@@ -26,7 +26,7 @@ export function startServer(chatDir: string, port: number) {
 
       // Web UI
       if (path === "/" && req.method === "GET") {
-        return new Response(webHtml, {
+        return new Response(String(webHtml), {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
