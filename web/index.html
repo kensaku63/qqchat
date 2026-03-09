@@ -946,6 +946,58 @@
       margin-top: 6px;
       padding: 6px 0;
     }
+
+    /* New message separator */
+    .new-separator {
+      display: flex;
+      align-items: center;
+      padding: 4px 20px;
+      gap: 8px;
+      color: #ef4444;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .new-separator::before,
+    .new-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #ef4444;
+      opacity: 0.4;
+    }
+
+    /* Thread inline reply */
+    .thread-reply-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 0 2px;
+      margin-top: 4px;
+    }
+    .thread-reply-input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .thread-reply-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+    }
+    .thread-reply-btn {
+      padding: 6px 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .thread-reply-btn:hover { background: var(--accent-hover); }
   </style>
 </head>
 <body>
@@ -1117,6 +1169,7 @@
       editingChannel: null,
       unreadCounts: {},
       needsWelcome: false,
+      lastReadIds: JSON.parse(localStorage.getItem('qqchat-lastread') || '{}'),
     };
 
     // --- Helpers ---
@@ -1139,13 +1192,26 @@
       return e;
     }
 
+    function getTimestampFromId(id) {
+      return parseInt(id.split('_')[0], 36);
+    }
+
     function formatTime(id) {
-      let ts = parseInt(id.split('_')[0], 36);
+      let ts = getTimestampFromId(id);
       let d = new Date(ts);
       return String(d.getMonth()+1).padStart(2,'0') + '/' +
              String(d.getDate()).padStart(2,'0') + ' ' +
              String(d.getHours()).padStart(2,'0') + ':' +
              String(d.getMinutes()).padStart(2,'0');
+    }
+
+    function formatRelativeTime(id) {
+      let ts = getTimestampFromId(id);
+      let diff = Date.now() - ts;
+      let mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'now';
+      if (mins < 60) return mins + 'm ago';
+      return null;
     }
 
     function isAgent(author) { return author.startsWith('agent@') || author.startsWith('agent:'); }
@@ -1428,7 +1494,16 @@
       return ROLE_COLORS[role] || '#6c7086';
     }
 
+    function saveLastRead() {
+      let currentMsgs = state.messages.filter(function(m) { return m.channel === state.currentChannel; });
+      if (currentMsgs.length > 0) {
+        state.lastReadIds[state.currentChannel] = currentMsgs[currentMsgs.length - 1].id;
+        localStorage.setItem('qqchat-lastread', JSON.stringify(state.lastReadIds));
+      }
+    }
+
     function switchChannel(name) {
+      saveLastRead();
       state.currentChannel = name;
       state.unreadCounts[name] = 0;
       switchView('chat');
@@ -1480,7 +1555,10 @@
       if (agent) {
         headerChildren.push(el('span', { className: 'msg-badge' }, [getAgentLabel(msg.author)]));
       }
-      headerChildren.push(el('span', { className: 'msg-time' }, [formatTime(msg.id)]));
+      let timeText = formatRelativeTime(msg.id) || formatTime(msg.id);
+      let timeSpan = el('span', { className: 'msg-time', title: formatTime(msg.id) }, [timeText]);
+      timeSpan.setAttribute('data-msg-id', msg.id);
+      headerChildren.push(timeSpan);
       let header = el('div', { className: 'msg-header' }, headerChildren);
 
       // Content（@メンション + [ref:ID] をハイライト）
@@ -1554,7 +1632,16 @@
       // Build root-only view: hide messages that have reply_to
       let rootMsgs = channelMsgs.filter(function(m) { return !m.reply_to; });
 
+      let lastReadId = state.lastReadIds[state.currentChannel];
+      let lastReadTs = lastReadId ? getTimestampFromId(lastReadId) : null;
+      let separatorShown = false;
+
       rootMsgs.forEach(function(msg) {
+        // Insert "New" separator before first unread message
+        if (!separatorShown && lastReadTs && getTimestampFromId(msg.id) > lastReadTs) {
+          container.appendChild(el('div', { className: 'new-separator' }, [el('span', {}, ['New'])]));
+          separatorShown = true;
+        }
         let msgEl = createMessageEl(msg);
         let replies = getThreadReplies(msg.id);
         if (replies.length > 0) {
@@ -1581,7 +1668,45 @@
       replies.forEach(function(r) {
         threadContainer.appendChild(createMessageEl(r));
       });
+      if (!state.publicRead) {
+        let replyInput = el('input', { className: 'thread-reply-input', placeholder: 'Reply...' });
+        let replyBtn = el('button', { className: 'thread-reply-btn' }, ['Send']);
+        let replyRow = el('div', { className: 'thread-reply-row' }, [replyInput, replyBtn]);
+        function doSend() {
+          let content = replyInput.value.trim();
+          if (!content) return;
+          sendThreadReply(rootId, content, replyInput);
+        }
+        replyBtn.addEventListener('click', doSend);
+        replyInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            doSend();
+          }
+        });
+        threadContainer.appendChild(replyRow);
+      }
       badge.parentNode.insertBefore(threadContainer, badge.nextSibling);
+    }
+
+    async function sendThreadReply(rootId, content, inputEl) {
+      let body = {
+        channel: state.currentChannel,
+        author: state.identity,
+        content: content,
+        reply_to: rootId,
+      };
+      try {
+        let res = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Server error: ' + res.status);
+        inputEl.value = '';
+      } catch (e) {
+        showToast('Failed to send: ' + (e.message || 'Unknown error'));
+      }
     }
 
     function appendMessage(msg) {
@@ -2629,6 +2754,18 @@
     }
 
     init();
+
+    // Save last read on page unload
+    window.addEventListener('beforeunload', function() { saveLastRead(); });
+
+    // Update relative timestamps every minute
+    setInterval(function() {
+      document.querySelectorAll('.msg-time[data-msg-id]').forEach(function(span) {
+        let id = span.getAttribute('data-msg-id');
+        let rel = formatRelativeTime(id);
+        span.textContent = rel || formatTime(id);
+      });
+    }, 60000);
   </script>
 </body>
 </html>
