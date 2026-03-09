@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -110,89 +110,6 @@
     .channel-status.active { background: #22c55e; }
     .channel-status.paused { background: #f59e0b; }
     .channel-status.archived { background: #6c7086; }
-
-    #agents-header {
-      padding: 12px 20px 8px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    #agent-list {
-      overflow-y: auto;
-      max-height: 180px;
-    }
-
-    .agent-item {
-      padding: 6px 20px;
-      font-size: 13px;
-      display: flex;
-      gap: 8px;
-      align-items: flex-start;
-    }
-
-    .agent-item-avatar {
-      width: 22px;
-      height: 22px;
-      border-radius: 4px;
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-    .agent-item-avatar.agent { background: var(--agent-avatar); }
-    .agent-item-avatar.human { background: var(--human-avatar); }
-
-    .agent-item-info { flex: 1; min-width: 0; }
-    .agent-item-name { color: var(--sidebar-text); font-weight: 600; font-size: 13px; }
-    .agent-item-meta { color: var(--text-muted); font-size: 11px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .agent-item-desc { color: var(--text-muted); font-size: 10px; margin-top: 1px; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    #context-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 12px;
-      color: var(--text-muted);
-      cursor: pointer;
-      margin-left: auto;
-    }
-    #context-btn:hover { background: #f0f0f0; color: var(--text); }
-
-    #context-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 100;
-      justify-content: center;
-      align-items: center;
-    }
-    #context-overlay.visible { display: flex; }
-
-    #context-panel {
-      background: #fff;
-      border-radius: 12px;
-      width: 640px;
-      max-height: 80vh;
-      overflow-y: auto;
-      padding: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
-
-    #context-panel h2 { font-size: 18px; margin-bottom: 16px; }
-    #context-panel h3 { font-size: 14px; margin: 16px 0 8px; color: var(--text-muted); }
-    #context-panel table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    #context-panel th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); }
-    #context-panel td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
-    #context-panel pre { background: #f5f5f5; padding: 12px; border-radius: 6px; font-size: 13px; white-space: pre-wrap; }
 
     #identity-bar {
       font-size: 11px;
@@ -594,6 +511,217 @@
       color: var(--text-muted);
       margin-right: 8px;
     }
+
+    /* Bottom Navigation */
+    #bottom-nav {
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 8px 0;
+    }
+    .nav-item {
+      padding: 7px 20px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-muted);
+      transition: background 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-item:hover { background: var(--sidebar-hover); color: var(--sidebar-text); }
+    .nav-item.active { background: var(--sidebar-active); color: #fff; font-weight: 500; }
+    .nav-icon { width: 18px; text-align: center; font-size: 12px; opacity: 0.7; }
+    .nav-item.active .nav-icon { opacity: 1; color: var(--accent); }
+
+    /* Panels */
+    .panel { flex: 1; overflow-y: auto; }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-header h2 { font-size: 16px; font-weight: 600; }
+    .panel-subtitle { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+    .panel-add-btn {
+      padding: 6px 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .panel-add-btn:hover { background: var(--accent-hover); }
+    .panel-empty { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+
+    /* Cards */
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 12px 20px;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #fafafa;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-weight: 600; font-size: 14px; }
+    .card-body { padding: 12px 16px; }
+    .card-row { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+    .card-field { font-size: 13px; margin-bottom: 4px; }
+    .field-label { color: var(--text-muted); font-size: 12px; }
+    .field-value { font-size: 13px; }
+    .card-desc { font-size: 13px; color: #555; margin-top: 4px; }
+    .card-detail { font-size: 12px; color: var(--text-muted); padding: 4px 16px 8px; }
+    .card-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+    /* Buttons */
+    .btn-sm {
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .btn-sm:hover { background: #f0f0f0; color: var(--text); }
+    .btn-danger { color: #ef4444; border-color: #fca5a5; }
+    .btn-danger:hover { background: #fef2f2; color: #dc2626; }
+    .btn-primary {
+      padding: 7px 18px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      padding: 7px 18px;
+      background: #fff;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-secondary:hover { background: #f0f0f0; }
+
+    /* Section labels */
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 12px 20px 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* Forms */
+    .panel-form {
+      margin: 12px 20px;
+      padding: 16px;
+      background: #f8f8fa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .form-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1); }
+    .form-input[readonly] { background: #eee; color: #888; }
+    select.form-input { min-width: 120px; flex: 0 0 auto; }
+    .form-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+    /* Task-specific */
+    .task-icon { font-size: 16px; flex-shrink: 0; }
+    .task-name { font-weight: 500; font-size: 14px; flex: 1; }
+    .task-assignee { font-size: 13px; color: var(--accent); }
+    .status-select {
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .card.task-done { opacity: 0.6; }
+
+    /* Agent panel avatar */
+    .agent-panel-avatar {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Channel status in panel */
+    .channel-status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .status-active { background: #22c55e; }
+    .status-paused { background: #f59e0b; }
+    .status-archived { background: #6c7086; }
+    .channel-status-text { font-size: 12px; color: var(--text-muted); }
+
+    /* Collapsible */
+    .collapsible-toggle {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 500;
+      border-top: 1px solid var(--border);
+    }
+    .collapsible-toggle:hover { background: #f8f8fa; }
+    .collapsible-content { padding: 0 16px 12px; }
+    .memory-item, .summary-item { font-size: 12px; color: #555; padding: 3px 0; line-height: 1.4; }
+    .memory-empty { font-size: 12px; color: #999; padding: 4px 0; }
+    .summary-date { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; }
+    .summary-text { font-size: 12px; color: #555; white-space: pre-wrap; line-height: 1.5; }
+
+    /* Context raw */
+    .context-raw {
+      background: #f5f5f5;
+      padding: 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0 20px 16px;
+      max-height: 600px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    /* Header no-hash mode */
+    #channel-header-name.no-hash::before { content: none; }
   </style>
 </head>
 <body>
@@ -606,15 +734,19 @@
       </div>
       <div id="channels-header">
         <span>Channels</span>
-        <button id="add-channel-btn" title="チャンネルを追加">+</button>
+        <button id="add-channel-btn" title="Add channel">+</button>
       </div>
       <div id="channel-list"></div>
-      <div id="agents-header">Agents</div>
-      <div id="agent-list"></div>
+      <div id="bottom-nav">
+        <div class="nav-item" data-view="tasks"><span class="nav-icon">☐</span>Tasks</div>
+        <div class="nav-item" data-view="agents"><span class="nav-icon">◎</span>Agents</div>
+        <div class="nav-item" data-view="channels"><span class="nav-icon">#</span>Channels</div>
+        <div class="nav-item" data-view="context"><span class="nav-icon">{}</span>Context</div>
+      </div>
       <div id="identity-bar">
         <span>&#x1F464;</span>
         <span id="identity-label"></span>
-        <button id="identity-change-btn">変更</button>
+        <button id="identity-change-btn">Change</button>
       </div>
       <div id="status-bar">
         <span class="status-dot connecting"></span>
@@ -625,11 +757,86 @@
       <header id="channel-header" style="display:flex;align-items:center;">
         <button id="mobile-menu-btn">&#9776;</button>
         <span id="channel-header-name">general</span>
-        <button id="context-btn">Context</button>
       </header>
       <div id="messages"></div>
-      <div id="context-overlay">
-        <div id="context-panel"></div>
+      <div id="tasks-panel" class="panel" style="display:none">
+        <div class="panel-header">
+          <h2>Tasks</h2>
+          <button class="panel-add-btn" id="add-task-btn">+ Add</button>
+        </div>
+        <div id="task-form" class="panel-form" style="display:none">
+          <div class="form-row">
+            <input type="text" id="task-name-input" class="form-input" placeholder="Task name *" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="task-assignee-input" class="form-input" placeholder="Assignee (optional)" />
+            <select id="task-channel-input" class="form-input"></select>
+          </div>
+          <div class="form-row">
+            <input type="text" id="task-detail-input" class="form-input" placeholder="Detail (optional)" />
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" id="task-submit-btn">Create</button>
+            <button class="btn-secondary" id="task-cancel-btn">Cancel</button>
+          </div>
+        </div>
+        <div id="tasks-content"></div>
+      </div>
+      <div id="agents-panel" class="panel" style="display:none">
+        <div class="panel-header">
+          <h2>Agents</h2>
+          <button class="panel-add-btn" id="add-agent-btn">+ Add</button>
+        </div>
+        <div id="agent-form" class="panel-form" style="display:none">
+          <div class="form-row">
+            <input type="text" id="agent-name-input" class="form-input" placeholder="Agent name *" />
+            <input type="text" id="agent-role-input" class="form-input" placeholder="Role (optional)" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="agent-desc-input" class="form-input" placeholder="Description (optional)" />
+          </div>
+          <div class="form-row">
+            <input type="text" id="agent-channels-input" class="form-input" placeholder="Channels (comma separated)" />
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" id="agent-submit-btn">Save</button>
+            <button class="btn-secondary" id="agent-cancel-btn">Cancel</button>
+          </div>
+        </div>
+        <div id="agents-content"></div>
+      </div>
+      <div id="channels-panel" class="panel" style="display:none">
+        <div class="panel-header">
+          <h2>Channels</h2>
+          <button class="panel-add-btn" id="add-ch-panel-btn">+ Add</button>
+        </div>
+        <div id="channel-panel-form" class="panel-form" style="display:none">
+          <div class="form-row">
+            <input type="text" id="ch-name-input" class="form-input" placeholder="Channel name *" />
+            <select id="ch-status-input" class="form-input">
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <input type="text" id="ch-desc-input" class="form-input" placeholder="Description (optional)" />
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" id="ch-submit-btn">Save</button>
+            <button class="btn-secondary" id="ch-cancel-btn">Cancel</button>
+          </div>
+        </div>
+        <div id="channels-content"></div>
+      </div>
+      <div id="context-view" class="panel" style="display:none">
+        <div class="panel-header">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <h2>Chat Context</h2>
+            <span class="panel-subtitle">Data passed to AI agents</span>
+          </div>
+        </div>
+        <div id="context-content"></div>
       </div>
       <div id="input-area">
         <div id="reply-preview">
@@ -638,7 +845,7 @@
         </div>
         <div id="input-row">
           <div id="mention-popup"></div>
-          <textarea id="message-input" placeholder="Type a message... (@名前 でメンション, Shift+Enter で改行)" rows="1" autocomplete="off"></textarea>
+          <textarea id="message-input" placeholder="Type a message... (@ to mention, Shift+Enter for newline)" rows="1" autocomplete="off"></textarea>
           <button id="send-btn">Send</button>
         </div>
       </div>
@@ -646,25 +853,31 @@
   </div>
 
   <script>
-    var state = {
+    const state = {
       chatName: '',
       owner: '',
       identity: '',
       channels: [],
       messages: [],
+      messageIds: new Set(),
       members: [],
       agents: {},
       currentChannel: 'general',
       replyTo: null,
       ws: null,
+      wsReconnectDelay: 1000,
       mentionQuery: null,
       mentionSelectedIdx: 0,
+      currentView: 'chat',
+      tasks: [],
+      editingAgent: null,
+      editingChannel: null,
     };
 
     // --- Helpers ---
 
     function el(tag, attrs, children) {
-      var e = document.createElement(tag);
+      let e = document.createElement(tag);
       if (attrs) {
         Object.keys(attrs).forEach(function(k) {
           if (k === 'className') e.className = attrs[k];
@@ -682,8 +895,8 @@
     }
 
     function formatTime(id) {
-      var ts = parseInt(id.split('_')[0], 36);
-      var d = new Date(ts);
+      let ts = parseInt(id.split('_')[0], 36);
+      let d = new Date(ts);
       return String(d.getMonth()+1).padStart(2,'0') + '/' +
              String(d.getDate()).padStart(2,'0') + ' ' +
              String(d.getHours()).padStart(2,'0') + ':' +
@@ -692,14 +905,14 @@
 
     function isAgent(author) { return author.startsWith('agent@') || author.startsWith('agent:'); }
     function getInitials(author) {
-      var name = getDisplayName(author);
+      let name = getDisplayName(author);
       return name.slice(0, 2).toUpperCase();
     }
     function getDisplayName(author) {
       // agent:Name@identity → Name
       if (author.startsWith('agent:')) {
-        var rest = author.slice(6);
-        var at = rest.indexOf('@');
+        let rest = author.slice(6);
+        let at = rest.indexOf('@');
         return at >= 0 ? rest.slice(0, at) : rest;
       }
       // agent@identity → identity
@@ -709,15 +922,15 @@
     function getAgentLabel(author) {
       // agent:Name@identity → "AGENT:Name"
       if (author.startsWith('agent:')) {
-        var rest = author.slice(6);
-        var at = rest.indexOf('@');
+        let rest = author.slice(6);
+        let at = rest.indexOf('@');
         return at >= 0 ? rest.slice(0, at) : rest;
       }
       return 'AGENT';
     }
 
     function findMessage(id) {
-      for (var i = 0; i < state.messages.length; i++) {
+      for (let i = 0; i < state.messages.length; i++) {
         if (state.messages[i].id === id) return state.messages[i];
       }
       return null;
@@ -726,27 +939,24 @@
     // --- API ---
 
     async function fetchInfo() {
-      var res = await fetch('/api/info');
-      var data = await res.json();
+      let res = await fetch('/api/info');
+      let data = await res.json();
       state.chatName = data.name;
       state.owner = data.owner;
       state.publicRead = data.public_read || false;
 
       if (state.publicRead) {
-        // Read-only mode: no identity prompt, hide input
         state.identity = 'viewer';
         document.getElementById('input-area').style.display = 'none';
         document.getElementById('identity-bar').style.display = 'none';
-        // Add demo banner
-        var banner = el('div', {
+        let banner = el('div', {
           className: 'demo-banner',
         }, ['Live Demo \u2014 agents-chat']);
         document.getElementById('main').insertBefore(banner, document.getElementById('main').firstChild);
       } else {
-        // identity は localStorage から読み込む。なければ入力させる
-        var saved = localStorage.getItem('agents-chat-identity');
+        let saved = localStorage.getItem('agents-chat-identity');
         if (!saved) {
-          saved = prompt('あなたの名前を入力してください（チャットでの表示名）:') || '';
+          saved = prompt('Enter your display name:') || '';
           saved = saved.trim() || 'anonymous';
           localStorage.setItem('agents-chat-identity', saved);
         }
@@ -759,48 +969,70 @@
     }
 
     async function fetchChannels() {
-      var res = await fetch('/api/channels');
-      var data = await res.json();
-      state.channels = data.channels;
-      renderChannels();
+      try {
+        let res = await fetch('/api/channels');
+        let data = await res.json();
+        state.channels = data.channels;
+        renderChannels();
+      } catch (e) {
+        showToast('Failed to load channels');
+      }
     }
 
     async function fetchMembers() {
-      var res = await fetch('/api/members');
-      var data = await res.json();
-      state.members = data.members.map(function(m) { return m.name; });
+      try {
+        let res = await fetch('/api/members');
+        let data = await res.json();
+        state.members = data.members.map(function(m) { return m.name; });
+      } catch (e) {
+        showToast('Failed to load members');
+      }
     }
 
     async function registerMember(name, oldName) {
-      var body = { name: name };
+      let body = { name: name };
       if (oldName) body.old_name = oldName;
-      await fetch('/api/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      try {
+        await fetch('/api/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        showToast('Failed to register member');
+      }
     }
 
     async function fetchAgents() {
-      var res = await fetch('/api/agents');
-      var data = await res.json();
-      state.agents = data.agents || {};
-      renderAgents();
+      try {
+        let res = await fetch('/api/agents');
+        let data = await res.json();
+        state.agents = data.agents || {};
+        if (state.currentView === 'agents') fetchAndRenderAgentsPanel();
+      } catch (e) {
+        showToast('Failed to load agents');
+      }
     }
 
     async function fetchMessages() {
-      var res = await fetch('/api/sync');
-      var data = await res.json();
-      state.messages = data.messages;
-      renderMessages();
+      try {
+        let res = await fetch('/api/sync');
+        let data = await res.json();
+        state.messages = data.messages;
+        state.messageIds.clear();
+        data.messages.forEach(function(m) { state.messageIds.add(m.id); });
+        renderMessages();
+      } catch (e) {
+        showToast('Failed to load messages');
+      }
     }
 
     async function sendMessage() {
-      var input = document.getElementById('message-input');
-      var content = input.value.trim();
+      let input = document.getElementById('message-input');
+      let content = input.value.trim();
       if (!content) return;
 
-      var body = {
+      let body = {
         channel: state.currentChannel,
         author: state.identity,
         content: content,
@@ -808,15 +1040,15 @@
       if (state.replyTo) body.reply_to = state.replyTo;
 
       // Save state before clearing
-      var savedContent = input.value;
-      var savedReplyTo = state.replyTo;
+      let savedContent = input.value;
+      let savedReplyTo = state.replyTo;
 
       input.value = '';
       input.style.height = 'auto';
       cancelReply();
 
       try {
-        var res = await fetch('/api/messages', {
+        let res = await fetch('/api/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -830,14 +1062,14 @@
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 160) + 'px';
         if (savedReplyTo) startReply(savedReplyTo);
-        showToast('送信に失敗しました: ' + (e.message || 'Unknown error'));
+        showToast('Failed to send: ' + (e.message || 'Unknown error'));
       }
     }
 
     function showToast(message) {
-      var existing = document.getElementById('error-toast');
+      let existing = document.getElementById('error-toast');
       if (existing) existing.remove();
-      var toast = el('div', { id: 'error-toast' }, [message]);
+      let toast = el('div', { id: 'error-toast' }, [message]);
       document.body.appendChild(toast);
       setTimeout(function() { toast.classList.add('visible'); }, 10);
       setTimeout(function() {
@@ -849,39 +1081,47 @@
     // --- WebSocket ---
 
     function connectWS() {
-      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      var ws = new WebSocket(proto + '//' + location.host + '/ws');
+      let proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let ws = new WebSocket(proto + '//' + location.host + '/ws');
 
       ws.onopen = function() {
         state.ws = ws;
+        state.wsReconnectDelay = 1000;
         updateStatus('connected', 'connected');
       };
 
       ws.onmessage = function(e) {
-        var data = JSON.parse(e.data);
+        let data = JSON.parse(e.data);
         if (data.type === 'channels') {
           state.channels = data.channels || [];
           renderChannels();
+          if (state.currentView === 'channels') fetchAndRenderChannelsPanel();
         }
         if (data.type === 'members') {
           state.members = data.members.map(function(m) { return m.name; });
         }
         if (data.type === 'agents') {
           state.agents = data.agents || {};
-          renderAgents();
+          if (state.currentView === 'agents') fetchAndRenderAgentsPanel();
         }
         if (data.type === 'msg') {
-          if (state.messages.some(function(m) { return m.id === data.id; })) return;
-          // Re-fetch channels if message is in an unknown channel
-          var knownChannels = state.channels.map(function(c) { return c.name; });
+          if (state.messageIds.has(data.id)) return;
+          state.messageIds.add(data.id);
+          let knownChannels = state.channels.map(function(c) { return c.name; });
           if (knownChannels.indexOf(data.channel) === -1) {
             fetchChannels();
           }
           state.messages.push(data);
-          if (data.channel === state.currentChannel) {
-            var wasAtBottom = isScrolledToBottom();
+          if (data.channel === state.currentChannel && state.currentView === 'chat') {
+            let wasAtBottom = isScrolledToBottom();
             appendMessage(data);
             if (wasAtBottom) scrollToBottom();
+          }
+          if (state.currentView === 'tasks' && data.metadata) {
+            try {
+              let meta = JSON.parse(data.metadata);
+              if (meta.task || meta.task_update) fetchAndRenderTasks();
+            } catch(ex) {}
           }
         }
       };
@@ -889,7 +1129,8 @@
       ws.onclose = function() {
         state.ws = null;
         updateStatus('disconnected', 'disconnected');
-        setTimeout(connectWS, 3000);
+        setTimeout(connectWS, state.wsReconnectDelay);
+        state.wsReconnectDelay = Math.min(state.wsReconnectDelay * 2, 30000);
       };
 
       ws.onerror = function() {
@@ -905,11 +1146,11 @@
     // --- Rendering ---
 
     function renderChannels() {
-      var list = document.getElementById('channel-list');
+      let list = document.getElementById('channel-list');
       while (list.firstChild) list.removeChild(list.firstChild);
       state.channels.forEach(function(ch) {
-        var item = el('div', {
-          className: 'channel-item' + (ch.name === state.currentChannel ? ' active' : ''),
+        let item = el('div', {
+          className: 'channel-item' + (ch.name === state.currentChannel && state.currentView === 'chat' ? ' active' : ''),
         }, [
           ch.name,
           ch.status ? el('span', {
@@ -922,7 +1163,7 @@
       });
     }
 
-    var ROLE_COLORS = {
+    const ROLE_COLORS = {
       builder: '#7c3aed',
       reviewer: '#3b82f6',
       director: '#059669',
@@ -936,40 +1177,9 @@
       return ROLE_COLORS[role] || '#6c7086';
     }
 
-    function renderAgents() {
-      var list = document.getElementById('agent-list');
-      while (list.firstChild) list.removeChild(list.firstChild);
-      var entries = Object.entries(state.agents);
-      entries.forEach(function(entry) {
-        var name = entry[0], info = entry[1];
-        var avatar = el('div', { className: 'agent-item-avatar agent' }, [name.slice(0, 2).toUpperCase()]);
-        avatar.style.background = getRoleColor(info.role);
-
-        var metaText = info.role || '';
-        if (info.channels && info.channels.length > 0) {
-          metaText += ' · ' + info.channels.map(function(c) { return '#' + c; }).join(' ');
-        }
-
-        var infoChildren = [
-          el('div', { className: 'agent-item-name' }, [name]),
-          el('div', { className: 'agent-item-meta' }, [metaText]),
-        ];
-        if (info.description) {
-          infoChildren.push(el('div', { className: 'agent-item-desc' }, [info.description]));
-        }
-
-        var item = el('div', { className: 'agent-item' }, [
-          avatar,
-          el('div', { className: 'agent-item-info' }, infoChildren),
-        ]);
-        list.appendChild(item);
-      });
-    }
-
     function switchChannel(name) {
       state.currentChannel = name;
-      document.getElementById('channel-header-name').textContent = name;
-      renderChannels();
+      switchView('chat');
       renderMessages();
       cancelReply();
       closeMobileSidebar();
@@ -977,36 +1187,36 @@
     }
 
     function createMessageEl(msg) {
-      var agent = isAgent(msg.author);
+      let agent = isAgent(msg.author);
 
       // Avatar
-      var avatar = el('div', { className: 'msg-avatar ' + (agent ? 'agent' : 'human') }, [
+      let avatar = el('div', { className: 'msg-avatar ' + (agent ? 'agent' : 'human') }, [
         getInitials(msg.author)
       ]);
 
       // Reply reference
-      var replyRef = null;
+      let replyRef = null;
       if (msg.reply_to) {
-        var orig = findMessage(msg.reply_to);
-        var preview = orig
+        let orig = findMessage(msg.reply_to);
+        let preview = orig
           ? getDisplayName(orig.author) + ': ' + orig.content.slice(0, 60) + (orig.content.length > 60 ? '...' : '')
           : 'reply:' + msg.reply_to.slice(-6);
         replyRef = el('div', { className: 'msg-reply-ref', 'data-reply': msg.reply_to }, [preview]);
       }
 
       // Header
-      var headerChildren = [
+      let headerChildren = [
         el('span', { className: 'msg-author' }, [getDisplayName(msg.author)]),
       ];
       if (agent) {
         headerChildren.push(el('span', { className: 'msg-badge' }, [getAgentLabel(msg.author)]));
       }
       headerChildren.push(el('span', { className: 'msg-time' }, [formatTime(msg.id)]));
-      var header = el('div', { className: 'msg-header' }, headerChildren);
+      let header = el('div', { className: 'msg-header' }, headerChildren);
 
       // Content（@メンション + [ref:ID] をハイライト）
-      var content = el('div', { className: 'msg-content' });
-      var escaped = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      let content = el('div', { className: 'msg-content' });
+      let escaped = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
       // [ref:ID] → clickable link
       escaped = escaped.replace(
         /\[ref:([a-z0-9_]+)\]/g,
@@ -1018,25 +1228,25 @@
       escaped = escaped.replace(
         /@([\w\-\.]+)/g,
         function(match, name) {
-          var isMe = name === state.identity || name === state.identity.replace('agent@', '');
+          let isMe = name === state.identity || name === state.identity.replace('agent@', '');
           return '<span class="mention' + (isMe ? ' me' : '') + '">' + match + '</span>';
         }
       );
       content.innerHTML = escaped;
 
       // Body
-      var bodyChildren = [];
+      let bodyChildren = [];
       if (replyRef) bodyChildren.push(replyRef);
       bodyChildren.push(header, content);
 
       // Actions (hidden in public_read mode)
       if (!state.publicRead) {
-        var replyBtn = el('button', { 'data-reply-btn': msg.id }, ['Reply']);
-        var linkBtn = el('button', { 'data-link-btn': msg.id }, ['Link']);
-        var actions = el('div', { className: 'msg-actions' }, [replyBtn, linkBtn]);
+        let replyBtn = el('button', { 'data-reply-btn': msg.id }, ['Reply']);
+        let linkBtn = el('button', { 'data-link-btn': msg.id }, ['Link']);
+        let actions = el('div', { className: 'msg-actions' }, [replyBtn, linkBtn]);
         bodyChildren.push(actions);
       }
-      var body = el('div', { className: 'msg-body' }, bodyChildren);
+      let body = el('div', { className: 'msg-body' }, bodyChildren);
 
       return el('div', { className: 'message', 'data-id': msg.id }, [avatar, body]);
     }
@@ -1048,10 +1258,10 @@
     }
 
     function renderMessages() {
-      var container = document.getElementById('messages');
+      let container = document.getElementById('messages');
       while (container.firstChild) container.removeChild(container.firstChild);
 
-      var channelMsgs = state.messages.filter(function(m) {
+      let channelMsgs = state.messages.filter(function(m) {
         return m.channel === state.currentChannel;
       });
 
@@ -1063,13 +1273,13 @@
       }
 
       // Build root-only view: hide messages that have reply_to
-      var rootMsgs = channelMsgs.filter(function(m) { return !m.reply_to; });
+      let rootMsgs = channelMsgs.filter(function(m) { return !m.reply_to; });
 
       rootMsgs.forEach(function(msg) {
-        var msgEl = createMessageEl(msg);
-        var replies = getThreadReplies(msg.id);
+        let msgEl = createMessageEl(msg);
+        let replies = getThreadReplies(msg.id);
         if (replies.length > 0) {
-          var badge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.id }, [
+          let badge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.id }, [
             replies.length + (replies.length === 1 ? ' reply' : ' replies')
           ]);
           msgEl.querySelector('.msg-body').appendChild(badge);
@@ -1080,15 +1290,15 @@
     }
 
     function toggleThread(rootId) {
-      var existing = document.querySelector('[data-thread-container="' + rootId + '"]');
+      let existing = document.querySelector('[data-thread-container="' + rootId + '"]');
       if (existing) {
         existing.remove();
         return;
       }
-      var badge = document.querySelector('[data-thread-toggle="' + rootId + '"]');
+      let badge = document.querySelector('[data-thread-toggle="' + rootId + '"]');
       if (!badge) return;
-      var replies = getThreadReplies(rootId);
-      var threadContainer = el('div', { className: 'thread-replies', 'data-thread-container': rootId });
+      let replies = getThreadReplies(rootId);
+      let threadContainer = el('div', { className: 'thread-replies', 'data-thread-container': rootId });
       replies.forEach(function(r) {
         threadContainer.appendChild(createMessageEl(r));
       });
@@ -1096,25 +1306,25 @@
     }
 
     function appendMessage(msg) {
-      var container = document.getElementById('messages');
-      var empty = container.querySelector('.empty-state');
+      let container = document.getElementById('messages');
+      let empty = container.querySelector('.empty-state');
       if (empty) container.removeChild(empty);
 
       if (msg.reply_to) {
         // Update thread badge count or add one
-        var parentEl = container.querySelector('[data-id="' + msg.reply_to + '"]');
+        let parentEl = container.querySelector('[data-id="' + msg.reply_to + '"]');
         if (parentEl) {
-          var badge = parentEl.querySelector('[data-thread-toggle]');
-          var replies = getThreadReplies(msg.reply_to);
+          let badge = parentEl.querySelector('[data-thread-toggle]');
+          let replies = getThreadReplies(msg.reply_to);
           if (badge) {
             badge.textContent = replies.length + (replies.length === 1 ? ' reply' : ' replies');
             // If thread is expanded, append the new reply
-            var threadContainer = document.querySelector('[data-thread-container="' + msg.reply_to + '"]');
+            let threadContainer = document.querySelector('[data-thread-container="' + msg.reply_to + '"]');
             if (threadContainer) {
               threadContainer.appendChild(createMessageEl(msg));
             }
           } else {
-            var newBadge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.reply_to }, [
+            let newBadge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.reply_to }, [
               replies.length + (replies.length === 1 ? ' reply' : ' replies')
             ]);
             parentEl.querySelector('.msg-body').appendChild(newBadge);
@@ -1127,17 +1337,17 @@
     }
 
     function isScrolledToBottom() {
-      var c = document.getElementById('messages');
+      let c = document.getElementById('messages');
       return c.scrollHeight - c.scrollTop - c.clientHeight < 40;
     }
 
     function scrollToBottom() {
-      var c = document.getElementById('messages');
+      let c = document.getElementById('messages');
       c.scrollTop = c.scrollHeight;
     }
 
     function scrollToMessage(id) {
-      var msg = document.querySelector('[data-id="' + CSS.escape(id) + '"]');
+      let msg = document.querySelector('[data-id="' + CSS.escape(id) + '"]');
       if (msg) {
         msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
         msg.classList.add('highlight');
@@ -1148,10 +1358,10 @@
     // --- Reply ---
 
     function startReply(id) {
-      var msg = findMessage(id);
+      let msg = findMessage(id);
       if (!msg) return;
       state.replyTo = id;
-      var text = getDisplayName(msg.author) + ': ' + msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : '');
+      let text = getDisplayName(msg.author) + ': ' + msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : '');
       document.getElementById('reply-text').textContent = text;
       document.getElementById('reply-preview').classList.add('visible');
       document.getElementById('message-input').focus();
@@ -1165,32 +1375,32 @@
     // --- Event delegation ---
 
     document.getElementById('messages').addEventListener('click', function(e) {
-      var threadToggle = e.target.closest('[data-thread-toggle]');
+      let threadToggle = e.target.closest('[data-thread-toggle]');
       if (threadToggle) {
         toggleThread(threadToggle.getAttribute('data-thread-toggle'));
         return;
       }
-      var replyBtn = e.target.closest('[data-reply-btn]');
+      let replyBtn = e.target.closest('[data-reply-btn]');
       if (replyBtn) {
         startReply(replyBtn.getAttribute('data-reply-btn'));
         return;
       }
-      var linkBtn = e.target.closest('[data-link-btn]');
+      let linkBtn = e.target.closest('[data-link-btn]');
       if (linkBtn) {
-        var id = linkBtn.getAttribute('data-link-btn');
-        var tag = '[ref:' + id + ']';
+        let id = linkBtn.getAttribute('data-link-btn');
+        let tag = '[ref:' + id + ']';
         navigator.clipboard.writeText(tag).then(function() {
           linkBtn.textContent = 'Copied!';
           setTimeout(function() { linkBtn.textContent = 'Link'; }, 1500);
         });
         return;
       }
-      var refLink = e.target.closest('[data-ref]');
+      let refLink = e.target.closest('[data-ref]');
       if (refLink) {
         scrollToMessage(refLink.getAttribute('data-ref'));
         return;
       }
-      var replyRef = e.target.closest('[data-reply]');
+      let replyRef = e.target.closest('[data-reply]');
       if (replyRef) {
         scrollToMessage(replyRef.getAttribute('data-reply'));
         return;
@@ -1203,14 +1413,14 @@
     // --- @メンション オートコンプリート ---
 
     function getMentionCandidates(query) {
-      var q = query.toLowerCase();
+      let q = query.toLowerCase();
       return state.members.filter(function(m) {
         return m.toLowerCase().startsWith(q);
       }).slice(0, 8);
     }
 
     function showMentionPopup(candidates) {
-      var popup = document.getElementById('mention-popup');
+      let popup = document.getElementById('mention-popup');
       while (popup.firstChild) popup.removeChild(popup.firstChild);
 
       if (candidates.length === 0) {
@@ -1219,7 +1429,7 @@
       }
 
       candidates.forEach(function(name, i) {
-        var item = el('div', { className: 'mention-item' + (i === state.mentionSelectedIdx ? ' selected' : '') }, [
+        let item = el('div', { className: 'mention-item' + (i === state.mentionSelectedIdx ? ' selected' : '') }, [
           el('div', { className: 'mention-item-avatar' }, [name.slice(0, 2).toUpperCase()]),
           el('span', {}, ['@' + name]),
         ]);
@@ -1240,9 +1450,9 @@
     }
 
     function insertMention(name) {
-      var input = document.getElementById('message-input');
-      var val = input.value;
-      var atPos = val.lastIndexOf('@');
+      let input = document.getElementById('message-input');
+      let val = input.value;
+      let atPos = val.lastIndexOf('@');
       input.value = val.slice(0, atPos) + '@' + name + ' ';
       hideMentionPopup();
       input.focus();
@@ -1253,14 +1463,14 @@
       this.style.height = 'auto';
       this.style.height = Math.min(this.scrollHeight, 160) + 'px';
 
-      var val = this.value;
-      var atPos = val.lastIndexOf('@');
+      let val = this.value;
+      let atPos = val.lastIndexOf('@');
       if (atPos === -1) { hideMentionPopup(); return; }
 
-      var before = val[atPos - 1];
+      let before = val[atPos - 1];
       if (atPos > 0 && before !== ' ' && before !== '\n') { hideMentionPopup(); return; }
 
-      var query = val.slice(atPos + 1);
+      let query = val.slice(atPos + 1);
       if (query.includes(' ')) { hideMentionPopup(); return; }
 
       state.mentionQuery = query;
@@ -1272,7 +1482,7 @@
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         if (document.getElementById('mention-popup').classList.contains('visible')) {
           e.preventDefault();
-          var candidates = getMentionCandidates(state.mentionQuery || '');
+          let candidates = getMentionCandidates(state.mentionQuery || '');
           if (candidates[state.mentionSelectedIdx]) {
             insertMention(candidates[state.mentionSelectedIdx]);
           }
@@ -1286,7 +1496,7 @@
       if (document.getElementById('mention-popup').classList.contains('visible')) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          var cands = getMentionCandidates(state.mentionQuery || '');
+          let cands = getMentionCandidates(state.mentionQuery || '');
           state.mentionSelectedIdx = Math.min(state.mentionSelectedIdx + 1, cands.length - 1);
           showMentionPopup(cands);
         } else if (e.key === 'ArrowUp') {
@@ -1302,12 +1512,12 @@
     document.getElementById('send-btn').addEventListener('click', sendMessage);
 
     document.getElementById('add-channel-btn').addEventListener('click', async function() {
-      var name = prompt('チャンネル名を入力してください:');
+      let name = prompt('Enter channel name:');
       if (!name) return;
       name = name.trim().toLowerCase().replace(/\s+/g, '-');
       if (!name) return;
 
-      var desc = prompt('説明（省略可）:') || '';
+      let desc = prompt('Description (optional):') || '';
 
       await fetch('/api/channels', {
         method: 'POST',
@@ -1319,177 +1529,543 @@
       switchChannel(name);
     });
 
-    document.getElementById('context-btn').addEventListener('click', async function() {
-      var panel = document.getElementById('context-panel');
-      while (panel.firstChild) panel.removeChild(panel.firstChild);
-      panel.appendChild(el('h2', {}, ['Loading...']));
-      document.getElementById('context-overlay').classList.add('visible');
+    // --- View Management ---
 
-      var results = await Promise.all([
-        fetch('/api/context').then(function(r) { return r.json(); }),
-        fetch('/api/channels').then(function(r) { return r.json(); }).catch(function() { return { channels: [] }; }),
-        fetch('/api/agents').then(function(r) { return r.json(); }).catch(function() { return { agents: {} }; }),
-        fetch('/api/tasks').then(function(r) { return r.json(); }).catch(function() { return { tasks: [] }; }),
-        fetch('/api/memories').then(function(r) { return r.json(); }).catch(function() { return { memories: [] }; }),
-        fetch('/api/summaries').then(function(r) { return r.json(); }).catch(function() { return { summaries: [] }; }),
-      ]);
+    function switchView(view) {
+      state.currentView = view;
+      let isChat = view === 'chat';
 
-      var data = results[0];
-      var channelsList = results[1].channels || [];
-      var agentsList = results[2].agents || {};
-      var tasks = results[3].tasks || [];
-      var memories = results[4].memories || [];
-      var summaries = results[5].summaries || [];
-
-      while (panel.firstChild) panel.removeChild(panel.firstChild);
-      panel.appendChild(el('h2', {}, ['Project Context']));
-
-      if (data.content) {
-        var pre = el('pre', {});
-        pre.textContent = data.content;
-        panel.appendChild(pre);
+      document.getElementById('messages').style.display = isChat ? '' : 'none';
+      if (!state.publicRead) {
+        document.getElementById('input-area').style.display = isChat ? '' : 'none';
       }
 
-      // Channels
-      if (channelsList.length > 0) {
-        panel.appendChild(el('h3', {}, ['Channels']));
-        var chTable = el('table', {}, [
-          el('tr', {}, [el('th', {}, ['Channel']), el('th', {}, ['Status']), el('th', {}, ['Description'])]),
-        ]);
-        channelsList.forEach(function(ch) {
-          chTable.appendChild(el('tr', {}, [
-            el('td', {}, ['#' + ch.name]),
-            el('td', {}, [ch.status || '']),
-            el('td', {}, [ch.description || '']),
-          ]));
-        });
-        panel.appendChild(chTable);
-      }
+      ['tasks-panel', 'agents-panel', 'channels-panel', 'context-view'].forEach(function(id) {
+        document.getElementById(id).style.display = 'none';
+      });
+      let panelMap = { tasks: 'tasks-panel', agents: 'agents-panel', channels: 'channels-panel', context: 'context-view' };
+      if (panelMap[view]) document.getElementById(panelMap[view]).style.display = '';
 
-      // Agents
-      var agEntries = Object.entries(agentsList);
-      if (agEntries.length > 0) {
-        panel.appendChild(el('h3', {}, ['Agents']));
-        var agTable = el('table', {}, [
-          el('tr', {}, [el('th', {}, ['Name']), el('th', {}, ['Role']), el('th', {}, ['Channels']), el('th', {}, ['Description'])]),
-        ]);
-        agEntries.forEach(function(e) {
-          agTable.appendChild(el('tr', {}, [
-            el('td', {}, [e[0]]),
-            el('td', {}, [e[1].role || '']),
-            el('td', {}, [(e[1].channels || []).join(', ')]),
-            el('td', {}, [e[1].description || '']),
-          ]));
-        });
-        panel.appendChild(agTable);
-      }
-
-      // Tasks
-      panel.appendChild(el('h3', {}, ['Tasks']));
-      if (tasks.length === 0) {
-        var noTasks = el('p', {});
-        noTasks.style.fontSize = '13px';
-        noTasks.style.color = '#999';
-        noTasks.textContent = 'No tasks';
-        panel.appendChild(noTasks);
+      let headerName = document.getElementById('channel-header-name');
+      if (isChat) {
+        headerName.textContent = state.currentChannel;
+        headerName.classList.remove('no-hash');
       } else {
-        var grouped = { pending: [], active: [], done: [] };
-        tasks.forEach(function(t) { if (grouped[t.status]) grouped[t.status].push(t); });
+        let titles = { tasks: 'Tasks', agents: 'Agents', channels: 'Channels', context: 'Chat Context' };
+        headerName.textContent = titles[view];
+        headerName.classList.add('no-hash');
+      }
 
-        var statusLabels = { pending: '\u25CB Pending', active: '\u25B6 Active', done: '\u2713 Done' };
-        ['pending', 'active', 'done'].forEach(function(s) {
-          if (grouped[s].length === 0) return;
-          var label = el('div', {});
-          label.style.cssText = 'font-size:12px;font-weight:600;margin:8px 0 4px;color:#666;';
-          label.textContent = statusLabels[s] + ' (' + grouped[s].length + ')';
-          panel.appendChild(label);
-          grouped[s].forEach(function(t) {
-            var icon = s === 'done' ? '\u2611' : '\u2610';
-            var taskEl = el('div', {});
-            taskEl.style.cssText = 'font-size:13px;padding:2px 0 2px 12px;';
-            taskEl.textContent = icon + ' ' + t.name + (t.assignee ? ' \u2192 @' + t.assignee : '');
-            panel.appendChild(taskEl);
+      document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.classList.toggle('active', item.getAttribute('data-view') === view);
+      });
+      renderChannels();
+
+      if (view === 'tasks') fetchAndRenderTasks();
+      if (view === 'agents') fetchAndRenderAgentsPanel();
+      if (view === 'channels') fetchAndRenderChannelsPanel();
+      if (view === 'context') fetchAndRenderContext();
+    }
+
+    // --- Tasks Panel ---
+
+    async function fetchAndRenderTasks() {
+      let res = await fetch('/api/tasks');
+      let data = await res.json();
+      state.tasks = data.tasks || [];
+      renderTasksPanel();
+    }
+
+    function renderTasksPanel() {
+      let content = document.getElementById('tasks-content');
+      while (content.firstChild) content.removeChild(content.firstChild);
+
+      if (state.tasks.length === 0) {
+        content.appendChild(el('div', { className: 'panel-empty' }, ['No tasks']));
+        return;
+      }
+
+      let grouped = { active: [], pending: [], done: [] };
+      state.tasks.forEach(function(t) {
+        if (grouped[t.status]) grouped[t.status].push(t);
+        else grouped.pending.push(t);
+      });
+
+      let sections = [
+        { key: 'active', label: '\u25B6 Active' },
+        { key: 'pending', label: '\u25CB Pending' },
+        { key: 'done', label: '\u2713 Done' },
+      ];
+
+      sections.forEach(function(s) {
+        if (grouped[s.key].length === 0) return;
+        content.appendChild(el('div', { className: 'section-label' }, [
+          s.label + ' (' + grouped[s.key].length + ')'
+        ]));
+        grouped[s.key].forEach(function(t) {
+          let statusSelect = el('select', { className: 'status-select' });
+          statusSelect.setAttribute('data-task-id', t.id);
+          statusSelect.setAttribute('data-task-channel', t.channel);
+          statusSelect.setAttribute('data-task-name', t.name);
+          ['pending', 'active', 'done'].forEach(function(st) {
+            let opt = el('option', { value: st }, [st]);
+            if (st === t.status) opt.selected = true;
+            statusSelect.appendChild(opt);
           });
+          if (state.publicRead) statusSelect.disabled = true;
+
+          let cardChildren = [
+            el('div', { className: 'card-row' }, [
+              el('span', { className: 'task-icon' }, [t.status === 'done' ? '\u2611' : '\u2610']),
+              el('span', { className: 'task-name' }, [t.name]),
+              t.assignee ? el('span', { className: 'task-assignee' }, ['\u2192 @' + t.assignee]) : null,
+              statusSelect,
+            ]),
+          ];
+          if (t.detail) {
+            cardChildren.push(el('div', { className: 'card-detail' }, [t.detail]));
+          }
+          content.appendChild(el('div', { className: 'card task-' + t.status }, cardChildren));
         });
+      });
+    }
+
+    async function createTask() {
+      let name = document.getElementById('task-name-input').value.trim();
+      if (!name) return;
+      let assignee = document.getElementById('task-assignee-input').value.trim();
+      let detail = document.getElementById('task-detail-input').value.trim();
+      let channel = document.getElementById('task-channel-input').value || 'general';
+      let assignText = assignee ? ' \u2192 @' + assignee : '';
+
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: channel,
+          author: state.identity,
+          content: '[Task] ' + name + assignText,
+          metadata: JSON.stringify({ task: { name: name, assignee: assignee, detail: detail, status: 'pending' } }),
+        }),
+      });
+      document.getElementById('task-form').style.display = 'none';
+      document.getElementById('task-name-input').value = '';
+      document.getElementById('task-assignee-input').value = '';
+      document.getElementById('task-detail-input').value = '';
+      await fetchAndRenderTasks();
+    }
+
+    async function updateTaskStatus(taskId, channel, taskName, newStatus) {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: channel,
+          author: state.identity,
+          content: '[Task] ' + taskName + ' \u2192 ' + newStatus,
+          reply_to: taskId,
+          metadata: JSON.stringify({ task_update: { status: newStatus } }),
+        }),
+      });
+      await fetchAndRenderTasks();
+    }
+
+    // --- Agents Panel ---
+
+    async function fetchAndRenderAgentsPanel() {
+      let res = await fetch('/api/agents');
+      let data = await res.json();
+      state.agents = data.agents || {};
+
+      let content = document.getElementById('agents-content');
+      while (content.firstChild) content.removeChild(content.firstChild);
+
+      let entries = Object.entries(state.agents);
+      if (entries.length === 0) {
+        content.appendChild(el('div', { className: 'panel-empty' }, ['No agents registered']));
+        return;
       }
 
-      // Recent Summaries
-      panel.appendChild(el('h3', {}, ['Recent Summaries']));
-      if (summaries.length === 0) {
-        var noSum = el('p', {});
-        noSum.style.fontSize = '13px';
-        noSum.style.color = '#999';
-        noSum.textContent = 'No summaries';
-        panel.appendChild(noSum);
-      } else {
-        // Show last 5 summaries, newest first
-        var recentSummaries = summaries.slice(-5).reverse();
-        recentSummaries.forEach(function(s) {
-          var date = new Date(s.created_at);
-          var dateStr = String(date.getMonth()+1).padStart(2,'0') + '/' +
-                       String(date.getDate()).padStart(2,'0') + ' ' +
-                       String(date.getHours()).padStart(2,'0') + ':' +
-                       String(date.getMinutes()).padStart(2,'0');
-          var sumEl = el('div', {});
-          sumEl.style.cssText = 'font-size:13px;padding:4px 0;';
-          var chLabel = el('span', {});
-          chLabel.style.cssText = 'font-weight:600;';
-          chLabel.textContent = '#' + (s.channel || '?') + ' \u2014 ' + dateStr;
-          var preview = el('div', {});
-          preview.style.cssText = 'font-size:12px;color:#666;padding-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:580px;';
-          preview.textContent = s.content.slice(0, 120) + (s.content.length > 120 ? '...' : '');
-          sumEl.appendChild(chLabel);
-          sumEl.appendChild(preview);
-          panel.appendChild(sumEl);
-        });
+      entries.forEach(function(entry) {
+        let name = entry[0], info = entry[1];
+        let channelsText = (info.channels || []).map(function(c) { return '#' + c; }).join(' ');
+
+        let avatar = el('div', { className: 'agent-panel-avatar' }, [name.slice(0, 2).toUpperCase()]);
+        avatar.style.background = getRoleColor(info.role);
+
+        let cardBody = el('div', { className: 'card-body' });
+        if (info.role) {
+          cardBody.appendChild(el('div', { className: 'card-field' }, [
+            el('span', { className: 'field-label' }, ['Role ']),
+            el('span', { className: 'field-value' }, [info.role]),
+          ]));
+        }
+        if (channelsText) {
+          cardBody.appendChild(el('div', { className: 'card-field' }, [
+            el('span', { className: 'field-label' }, ['Channels ']),
+            el('span', { className: 'field-value' }, [channelsText]),
+          ]));
+        }
+        if (info.description) {
+          cardBody.appendChild(el('div', { className: 'card-desc' }, [info.description]));
+        }
+
+        if (!state.publicRead) {
+          let editBtn = el('button', { className: 'btn-sm' }, ['Edit']);
+          editBtn.setAttribute('data-edit-agent', name);
+          let deleteBtn = el('button', { className: 'btn-sm btn-danger' }, ['Delete']);
+          deleteBtn.setAttribute('data-delete-agent', name);
+          cardBody.appendChild(el('div', { className: 'card-actions' }, [editBtn, deleteBtn]));
+        }
+
+        let memToggle = el('div', { className: 'collapsible-toggle' }, ['\u25B6 Memories']);
+        memToggle.setAttribute('data-agent-memory', name);
+        let memContent = el('div', { className: 'collapsible-content' });
+        memContent.setAttribute('data-memory-content', name);
+        memContent.style.display = 'none';
+
+        let card = el('div', { className: 'card' }, [
+          el('div', { className: 'card-header' }, [avatar, el('span', { className: 'card-title' }, [name])]),
+          cardBody,
+          memToggle,
+          memContent,
+        ]);
+        content.appendChild(card);
+      });
+    }
+
+    function openAgentForm(agentData) {
+      document.getElementById('agent-form').style.display = '';
+      document.getElementById('agent-name-input').value = agentData ? agentData.name : '';
+      document.getElementById('agent-name-input').readOnly = !!agentData;
+      document.getElementById('agent-role-input').value = agentData ? (agentData.role || '') : '';
+      document.getElementById('agent-desc-input').value = agentData ? (agentData.description || '') : '';
+      document.getElementById('agent-channels-input').value = agentData ? (agentData.channels || []).join(', ') : '';
+      state.editingAgent = agentData ? agentData.name : null;
+    }
+
+    function clearAgentForm() {
+      document.getElementById('agent-name-input').value = '';
+      document.getElementById('agent-name-input').readOnly = false;
+      document.getElementById('agent-role-input').value = '';
+      document.getElementById('agent-desc-input').value = '';
+      document.getElementById('agent-channels-input').value = '';
+      state.editingAgent = null;
+    }
+
+    async function saveAgent() {
+      let name = document.getElementById('agent-name-input').value.trim();
+      if (!name) return;
+      let role = document.getElementById('agent-role-input').value.trim();
+      let desc = document.getElementById('agent-desc-input').value.trim();
+      let channelsStr = document.getElementById('agent-channels-input').value.trim();
+      let channels = channelsStr ? channelsStr.split(',').map(function(s) { return s.trim().replace(/^#/, ''); }).filter(Boolean) : [];
+
+      await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, role: role, description: desc, channels: channels }),
+      });
+      document.getElementById('agent-form').style.display = 'none';
+      clearAgentForm();
+      await fetchAndRenderAgentsPanel();
+    }
+
+    async function deleteAgent(name) {
+      if (!confirm('Delete agent "' + name + '"?')) return;
+      await fetch('/api/agents/' + encodeURIComponent(name), { method: 'DELETE' });
+      await fetchAndRenderAgentsPanel();
+    }
+
+    async function loadAgentMemories(agentName) {
+      let contentEl = document.querySelector('[data-memory-content="' + agentName + '"]');
+      if (!contentEl) return;
+
+      if (contentEl.style.display === '') {
+        contentEl.style.display = 'none';
+        let toggle = document.querySelector('[data-agent-memory="' + agentName + '"]');
+        if (toggle) toggle.textContent = '\u25B6 Memories';
+        return;
       }
 
-      // Agent Memories
-      panel.appendChild(el('h3', {}, ['Agent Memories']));
+      contentEl.style.display = '';
+      contentEl.innerHTML = '<div style="font-size:12px;color:#999;padding:4px 0;">Loading...</div>';
+      let toggle = document.querySelector('[data-agent-memory="' + agentName + '"]');
+      if (toggle) toggle.textContent = '\u25BC Memories';
+
+      let res = await fetch('/api/memories?agent=' + encodeURIComponent(agentName));
+      let data = await res.json();
+      let memories = data.memories || [];
+
+      while (contentEl.firstChild) contentEl.removeChild(contentEl.firstChild);
       if (memories.length === 0) {
-        var noMem = el('p', {});
-        noMem.style.fontSize = '13px';
-        noMem.style.color = '#999';
-        noMem.textContent = 'No memories';
-        panel.appendChild(noMem);
-      } else {
-        // Group by agent
-        var memByAgent = {};
-        memories.forEach(function(m) {
-          if (!memByAgent[m.agent]) memByAgent[m.agent] = [];
-          memByAgent[m.agent].push(m);
-        });
-        Object.entries(memByAgent).forEach(function(entry) {
-          var agentName = entry[0], mems = entry[1];
-          var agentLabel = el('div', {});
-          agentLabel.style.cssText = 'font-size:12px;font-weight:600;margin:8px 0 4px;color:#666;';
-          agentLabel.textContent = agentName + ' (' + mems.length + ' memories)';
-          panel.appendChild(agentLabel);
-          // Show last 3 per agent
-          mems.slice(-3).forEach(function(m) {
-            var memEl = el('div', {});
-            memEl.style.cssText = 'font-size:12px;color:#666;padding:1px 0 1px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:580px;';
-            var tagStr = m.tags && m.tags.length > 0 ? ' [' + m.tags.join(', ') + ']' : '';
-            memEl.textContent = '\u2022 ' + m.content.slice(0, 100) + (m.content.length > 100 ? '...' : '') + tagStr;
-            panel.appendChild(memEl);
-          });
-        });
+        contentEl.appendChild(el('div', { className: 'memory-empty' }, ['No memories']));
+        return;
+      }
+      memories.forEach(function(m) {
+        let tagStr = m.tags && m.tags.length > 0 ? ' [' + m.tags.join(', ') + ']' : '';
+        contentEl.appendChild(el('div', { className: 'memory-item' }, ['\u2022 ' + m.content + tagStr]));
+      });
+    }
+
+    // --- Channels Panel ---
+
+    async function fetchAndRenderChannelsPanel() {
+      let channelsRes = await fetch('/api/channels');
+      let channelsData = await channelsRes.json();
+      let channels = channelsData.channels || [];
+
+      let content = document.getElementById('channels-content');
+      while (content.firstChild) content.removeChild(content.firstChild);
+
+      if (channels.length === 0) {
+        content.appendChild(el('div', { className: 'panel-empty' }, ['No channels']));
+        return;
       }
 
-      var footer = el('p', { className: '' }, ['Data: .chat/chat.db (_system channel)']);
-      footer.style.marginTop = '16px';
-      footer.style.fontSize = '11px';
-      footer.style.color = '#999';
-      panel.appendChild(footer);
+      channels.forEach(function(ch) {
+        let statusDot = el('span', { className: 'channel-status-dot status-' + (ch.status || 'active') });
+        let cardBody = el('div', { className: 'card-body' });
+        if (ch.description) {
+          cardBody.appendChild(el('div', { className: 'card-desc' }, [ch.description]));
+        }
+
+        if (!state.publicRead) {
+          let editBtn = el('button', { className: 'btn-sm' }, ['Edit']);
+          editBtn.setAttribute('data-edit-channel', ch.name);
+          cardBody.appendChild(el('div', { className: 'card-actions' }, [editBtn]));
+        }
+
+        let sumToggle = el('div', { className: 'collapsible-toggle' }, ['\u25B6 Summaries']);
+        sumToggle.setAttribute('data-channel-summary', ch.name);
+        let sumContent = el('div', { className: 'collapsible-content' });
+        sumContent.setAttribute('data-summary-content', ch.name);
+        sumContent.style.display = 'none';
+
+        let card = el('div', { className: 'card' }, [
+          el('div', { className: 'card-header' }, [
+            el('span', { className: 'card-title' }, ['# ' + ch.name]),
+            statusDot,
+            el('span', { className: 'channel-status-text' }, [ch.status || 'active']),
+          ]),
+          cardBody,
+          sumToggle,
+          sumContent,
+        ]);
+        content.appendChild(card);
+      });
+    }
+
+    function openChannelForm(channelData) {
+      document.getElementById('channel-panel-form').style.display = '';
+      document.getElementById('ch-name-input').value = channelData ? channelData.name : '';
+      document.getElementById('ch-name-input').readOnly = !!channelData;
+      document.getElementById('ch-desc-input').value = channelData ? (channelData.description || '') : '';
+      document.getElementById('ch-status-input').value = channelData ? (channelData.status || 'active') : 'active';
+      document.getElementById('ch-status-input').style.display = channelData ? '' : 'none';
+      state.editingChannel = channelData ? channelData.name : null;
+    }
+
+    function clearChannelForm() {
+      document.getElementById('ch-name-input').value = '';
+      document.getElementById('ch-name-input').readOnly = false;
+      document.getElementById('ch-desc-input').value = '';
+      document.getElementById('ch-status-input').value = 'active';
+      document.getElementById('ch-status-input').style.display = '';
+      state.editingChannel = null;
+    }
+
+    async function saveChannel() {
+      let name = document.getElementById('ch-name-input').value.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!name) return;
+      let desc = document.getElementById('ch-desc-input').value.trim();
+      let status = document.getElementById('ch-status-input').value;
+      let body = { name: name, description: desc };
+      if (state.editingChannel) body.status = status;
+
+      await fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      document.getElementById('channel-panel-form').style.display = 'none';
+      clearChannelForm();
+      await fetchAndRenderChannelsPanel();
+      await fetchChannels();
+    }
+
+    async function loadChannelSummaries(channelName) {
+      let contentEl = document.querySelector('[data-summary-content="' + channelName + '"]');
+      if (!contentEl) return;
+
+      if (contentEl.style.display === '') {
+        contentEl.style.display = 'none';
+        let toggle = document.querySelector('[data-channel-summary="' + channelName + '"]');
+        if (toggle) toggle.textContent = '\u25B6 Summaries';
+        return;
+      }
+
+      contentEl.style.display = '';
+      contentEl.innerHTML = '<div style="font-size:12px;color:#999;padding:4px 0;">Loading...</div>';
+      let toggle = document.querySelector('[data-channel-summary="' + channelName + '"]');
+      if (toggle) toggle.textContent = '\u25BC Summaries';
+
+      let res = await fetch('/api/summaries/' + encodeURIComponent(channelName) + '?last=5');
+      let data = await res.json();
+      let summaries = data.summaries || [];
+
+      while (contentEl.firstChild) contentEl.removeChild(contentEl.firstChild);
+      if (summaries.length === 0) {
+        contentEl.appendChild(el('div', { className: 'memory-empty' }, ['No summaries']));
+        return;
+      }
+      summaries.reverse().forEach(function(s) {
+        let date = new Date(s.created_at);
+        let dateStr = String(date.getMonth()+1).padStart(2,'0') + '/' +
+                     String(date.getDate()).padStart(2,'0') + ' ' +
+                     String(date.getHours()).padStart(2,'0') + ':' +
+                     String(date.getMinutes()).padStart(2,'0');
+        contentEl.appendChild(el('div', { className: 'summary-item' }, [
+          el('div', { className: 'summary-date' }, [dateStr]),
+          el('div', { className: 'summary-text' }, [s.content]),
+        ]));
+      });
+    }
+
+    // --- Context Panel ---
+
+    async function fetchAndRenderContext() {
+      let content = document.getElementById('context-content');
+      content.innerHTML = '<div class="panel-empty">Loading...</div>';
+      try {
+        let results = await Promise.all([
+          fetch('/api/context').then(function(r) { return r.json(); }),
+          fetch('/api/channels').then(function(r) { return r.json(); }),
+          fetch('/api/agents').then(function(r) { return r.json(); }),
+          fetch('/api/tasks').then(function(r) { return r.json(); }),
+          fetch('/api/memories').then(function(r) { return r.json(); }),
+          fetch('/api/summaries').then(function(r) { return r.json(); }),
+        ]);
+        while (content.firstChild) content.removeChild(content.firstChild);
+
+        let contextData = {
+          project: results[0].content || null,
+          channels: results[1].channels || [],
+          agents: results[2].agents || {},
+          tasks: results[3].tasks || [],
+          memories: results[4].memories || [],
+          summaries: results[5].summaries || [],
+        };
+
+        if (contextData.project) {
+          content.appendChild(el('div', { className: 'section-label' }, ['CHAT.md']));
+          let pre = el('pre', { className: 'context-raw' });
+          pre.textContent = contextData.project;
+          content.appendChild(pre);
+        }
+
+        content.appendChild(el('div', { className: 'section-label' }, ['Full Context (JSON)']));
+        let jsonPre = el('pre', { className: 'context-raw' });
+        jsonPre.textContent = JSON.stringify(contextData, null, 2);
+        content.appendChild(jsonPre);
+      } catch (err) {
+        content.innerHTML = '<div class="panel-empty">Failed to load context</div>';
+      }
+    }
+
+    // --- Panel Event Handlers ---
+
+    document.getElementById('bottom-nav').addEventListener('click', function(e) {
+      let navItem = e.target.closest('.nav-item');
+      if (!navItem) return;
+      let view = navItem.getAttribute('data-view');
+      if (view) switchView(view);
     });
 
-    document.getElementById('context-overlay').addEventListener('click', function(e) {
-      if (e.target === this) this.classList.remove('visible');
+    document.getElementById('add-task-btn').addEventListener('click', function() {
+      let form = document.getElementById('task-form');
+      form.style.display = form.style.display === 'none' ? '' : 'none';
+      let select = document.getElementById('task-channel-input');
+      while (select.firstChild) select.removeChild(select.firstChild);
+      state.channels.forEach(function(ch) {
+        select.appendChild(el('option', { value: ch.name }, [ch.name]));
+      });
+    });
+    document.getElementById('task-submit-btn').addEventListener('click', createTask);
+    document.getElementById('task-cancel-btn').addEventListener('click', function() {
+      document.getElementById('task-form').style.display = 'none';
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target.classList.contains('status-select')) {
+        updateTaskStatus(
+          e.target.getAttribute('data-task-id'),
+          e.target.getAttribute('data-task-channel'),
+          e.target.getAttribute('data-task-name'),
+          e.target.value
+        );
+      }
+    });
+
+    document.getElementById('add-agent-btn').addEventListener('click', function() {
+      openAgentForm(null);
+    });
+    document.getElementById('agent-submit-btn').addEventListener('click', saveAgent);
+    document.getElementById('agent-cancel-btn').addEventListener('click', function() {
+      document.getElementById('agent-form').style.display = 'none';
+      clearAgentForm();
+    });
+
+    document.getElementById('agents-content').addEventListener('click', function(e) {
+      let editBtn = e.target.closest('[data-edit-agent]');
+      if (editBtn) {
+        let name = editBtn.getAttribute('data-edit-agent');
+        let agentInfo = state.agents[name];
+        if (agentInfo) openAgentForm({ name: name, role: agentInfo.role, description: agentInfo.description, channels: agentInfo.channels });
+        return;
+      }
+      let deleteBtn = e.target.closest('[data-delete-agent]');
+      if (deleteBtn) {
+        deleteAgent(deleteBtn.getAttribute('data-delete-agent'));
+        return;
+      }
+      let memToggle = e.target.closest('[data-agent-memory]');
+      if (memToggle) {
+        loadAgentMemories(memToggle.getAttribute('data-agent-memory'));
+        return;
+      }
+    });
+
+    document.getElementById('add-ch-panel-btn').addEventListener('click', function() {
+      openChannelForm(null);
+    });
+    document.getElementById('ch-submit-btn').addEventListener('click', saveChannel);
+    document.getElementById('ch-cancel-btn').addEventListener('click', function() {
+      document.getElementById('channel-panel-form').style.display = 'none';
+      clearChannelForm();
+    });
+
+    document.getElementById('channels-content').addEventListener('click', function(e) {
+      let editBtn = e.target.closest('[data-edit-channel]');
+      if (editBtn) {
+        let name = editBtn.getAttribute('data-edit-channel');
+        let ch = null;
+        for (let i = 0; i < state.channels.length; i++) {
+          if (state.channels[i].name === name) { ch = state.channels[i]; break; }
+        }
+        if (ch) openChannelForm(ch);
+        return;
+      }
+      let sumToggle = e.target.closest('[data-channel-summary]');
+      if (sumToggle) {
+        loadChannelSummaries(sumToggle.getAttribute('data-channel-summary'));
+        return;
+      }
     });
 
     document.getElementById('identity-change-btn').addEventListener('click', async function() {
-      var current = state.identity;
-      var newName = prompt('新しい名前を入力してください:', current);
+      let current = state.identity;
+      let newName = prompt('Enter new display name:', current);
       if (newName === null) return;
       newName = newName.trim() || current;
       state.identity = newName;
@@ -1519,7 +2095,9 @@
 
     async function init() {
       await fetchInfo();
-      if (!state.publicRead) {
+      if (state.publicRead) {
+        document.querySelectorAll('.panel-add-btn').forEach(function(btn) { btn.style.display = 'none'; });
+      } else {
         await registerMember(state.identity);
       }
       await fetchMembers();

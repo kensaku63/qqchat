@@ -18,7 +18,7 @@ src/server.ts   HTTP/WebSocket server (Bun.serve), standby/tunnel
 src/db.ts       SQLite schema, queries, all data operations
 src/config.ts   Node-local config (.chat/config.json)
 src/sync.ts     Upstream sync (message-based, single endpoint)
-web/index.html  Read-only monitoring UI (single file)
+web/index.html  Web UI (single file, monitoring + lightweight editing)
 ```
 
 Data lives in `.chat/` dir: `config.json` (node-local), `chat.db` (all shared data).
@@ -28,7 +28,7 @@ Data lives in `.chat/` dir: `config.json` (node-local), `chat.db` (all shared da
 - **Simplicity first.** Fewer abstractions, fewer files, fewer dependencies. Flat is better than nested.
 - **AI agent-first.** CLI and JSON output are the primary interface. Optimize for machine readability over human convenience.
 - **Latency matters.** Local SQLite reads, no unnecessary network calls. `--sync` is opt-in. Avoid blocking operations.
-- **No web UI for editing.** Web UI is read-only monitoring only. All config/agent changes go through CLI or direct file edits.
+- **CLI is primary, Web UI is secondary.** CLI and direct file edits are the canonical interface. Web UI provides monitoring and lightweight editing (send messages, manage agents/tasks/channels). `public_read` mode makes Web UI read-only for external viewers.
 - **Append-only messages.** Never mutate or delete messages. Updates use reply chains (e.g. task status updates reply to the original task message).
 
 ## Key Patterns
