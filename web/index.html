@@ -843,6 +843,109 @@
     .summary-date { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-top: 6px; }
     .summary-text { font-size: 12px; color: #555; white-space: pre-wrap; line-height: 1.5; }
 
+    /* Orchestration */
+    .orch-card {
+      margin: 8px 20px;
+      padding: 12px 16px;
+      background: #f8f8fa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .orch-card .orch-name {
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .orch-card .orch-detail {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .orch-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #ede9fe;
+      color: var(--accent);
+    }
+    .orch-tag.ai { background: #dbeafe; color: #1d4ed8; }
+    .orch-tag.dir { background: #f0fdf4; color: #166534; font-family: 'SF Mono', 'Menlo', monospace; font-size: 10px; }
+    .orch-remove {
+      background: none;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .orch-remove:hover { color: #ef4444; }
+    .orch-form {
+      margin: 8px 20px;
+      padding: 14px 16px;
+      background: #f8f8fa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .orch-form .form-row { margin-bottom: 8px; }
+    .orch-form label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 2px; }
+    .orch-code {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 400px;
+      overflow-y: auto;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+    .orch-copy-row { display: flex; gap: 8px; margin-top: 8px; }
+    .orch-copy-btn {
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .orch-copy-btn:hover { background: #f0f0f0; color: var(--text); }
+    .orch-copy-btn.copied { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .orch-prompt-section {
+      margin: 12px 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .orch-prompt-header {
+      padding: 10px 16px;
+      background: #f8f8fa;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .orch-prompt-header:hover { background: #f0f0f3; }
+    .orch-prompt-body { padding: 16px; }
+    .orch-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
+    .orch-patrol-row { margin: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+
     /* Context raw */
     .context-raw {
       background: #f5f5f5;
@@ -1085,6 +1188,7 @@
       <div id="bottom-nav">
         <div class="nav-item" data-view="tasks"><span class="nav-icon">☐</span>Tasks</div>
         <div class="nav-item" data-view="agents"><span class="nav-icon">◎</span>Agents</div>
+        <div class="nav-item" data-view="orchestration"><span class="nav-icon">⚙</span>Orchestration</div>
         <div class="nav-item" data-view="channels"><span class="nav-icon">#</span>Channels</div>
         <div class="nav-item" data-view="context"><span class="nav-icon">{}</span>Context</div>
       </div>
@@ -1172,6 +1276,26 @@
         </div>
         <div id="agents-content"></div>
       </div>
+      <div id="orchestration-panel" class="panel" style="display:none">
+        <div class="panel-header">
+          <h2>Orchestration</h2>
+        </div>
+        <div id="orch-content">
+          <div class="section-label">Loop Agents</div>
+          <div id="orch-loop-list"></div>
+          <div style="padding:4px 20px 12px">
+            <button class="btn-sm" id="orch-add-loop">+ Add</button>
+          </div>
+          <div class="section-label">Trigger Agents</div>
+          <div id="orch-trigger-list"></div>
+          <div style="padding:4px 20px 12px">
+            <button class="btn-sm" id="orch-add-trigger">+ Add</button>
+          </div>
+          <div class="section-label">Patrol</div>
+          <div id="orch-patrol-config"></div>
+          <div id="orch-prompts"></div>
+        </div>
+      </div>
       <div id="channels-panel" class="panel" style="display:none">
         <div class="panel-header">
           <h2>Channels</h2>
@@ -1243,6 +1367,7 @@
       unreadCounts: {},
       needsWelcome: false,
       lastReadIds: JSON.parse(localStorage.getItem('qqchat-lastread') || '{}'),
+      orchestration: JSON.parse(localStorage.getItem('qqchat-orchestration') || '{"loopAgents":{},"triggerAgents":{},"patrolInterval":"10m"}'),
     };
 
     // --- Helpers ---
@@ -2061,10 +2186,10 @@
         document.getElementById('input-area').style.display = isChat ? '' : 'none';
       }
 
-      ['tasks-panel', 'agents-panel', 'channels-panel', 'context-view'].forEach(function(id) {
+      ['tasks-panel', 'agents-panel', 'orchestration-panel', 'channels-panel', 'context-view'].forEach(function(id) {
         document.getElementById(id).style.display = 'none';
       });
-      let panelMap = { tasks: 'tasks-panel', agents: 'agents-panel', channels: 'channels-panel', context: 'context-view' };
+      let panelMap = { tasks: 'tasks-panel', agents: 'agents-panel', orchestration: 'orchestration-panel', channels: 'channels-panel', context: 'context-view' };
       if (panelMap[view]) document.getElementById(panelMap[view]).style.display = '';
 
       let headerName = document.getElementById('channel-header-name');
@@ -2074,7 +2199,7 @@
         headerName.classList.remove('no-hash');
         updateChannelHeaderDesc();
       } else {
-        let titles = { tasks: 'Tasks', agents: 'Agents', channels: 'Channels', context: 'Chat Context' };
+        let titles = { tasks: 'Tasks', agents: 'Agents', orchestration: 'Orchestration', channels: 'Channels', context: 'Chat Context' };
         headerName.textContent = titles[view];
         headerName.classList.add('no-hash');
         headerDesc.textContent = '';
@@ -2087,6 +2212,7 @@
 
       if (view === 'tasks') fetchAndRenderTasks();
       if (view === 'agents') fetchAndRenderAgentsPanel();
+      if (view === 'orchestration') fetchAndRenderOrchestration();
       if (view === 'channels') fetchAndRenderChannelsPanel();
       if (view === 'context') fetchAndRenderContext();
     }
@@ -2498,6 +2624,461 @@
       }
     }
 
+    // --- Orchestration ---
+
+    function saveOrchestration() {
+      localStorage.setItem('qqchat-orchestration', JSON.stringify(state.orchestration));
+    }
+
+    function isValidInterval(v) {
+      return /^\d+[smh]$/.test(v);
+    }
+
+    function shellEscapeDQ(s) {
+      return s.replace(/[\\$`"!]/g, '\\$&');
+    }
+
+    function getAgentNames() {
+      return Object.keys(state.agents);
+    }
+
+    function getAvailableAgentsFor(section, exclude) {
+      var used = Object.keys(state.orchestration[section]);
+      return getAgentNames().filter(function(n) { return used.indexOf(n) === -1 || n === exclude; });
+    }
+
+    async function fetchAndRenderOrchestration() {
+      if (Object.keys(state.agents).length === 0) {
+        try {
+          var res = await fetch('/api/agents');
+          var data = await res.json();
+          state.agents = data.agents || {};
+        } catch (e) { console.error('Failed to fetch agents:', e); }
+      }
+      renderLoopAgents();
+      renderTriggerAgents();
+      renderPatrolConfig();
+      renderOrchPrompts();
+    }
+
+    function renderLoopAgents() {
+      var list = document.getElementById('orch-loop-list');
+      while (list.firstChild) list.removeChild(list.firstChild);
+      var entries = Object.entries(state.orchestration.loopAgents);
+      if (entries.length === 0) {
+        list.appendChild(el('div', { className: 'orch-empty' }, ['No loop agents configured']));
+        return;
+      }
+      entries.forEach(function(entry) {
+        var name = entry[0], cfg = entry[1];
+        var card = el('div', { className: 'orch-card' });
+        card.appendChild(el('span', { className: 'orch-name' }, [name]));
+        var detail = el('div', { className: 'orch-detail' });
+        detail.appendChild(el('span', { className: 'orch-tag' }, [cfg.interval || '5m']));
+        if (cfg.directory) detail.appendChild(el('span', { className: 'orch-tag dir' }, [cfg.directory]));
+        card.appendChild(detail);
+        var removeBtn = el('button', { className: 'orch-remove' }, ['\u00d7']);
+        removeBtn.setAttribute('data-orch-remove-loop', name);
+        card.appendChild(removeBtn);
+        list.appendChild(card);
+      });
+    }
+
+    function renderTriggerAgents() {
+      var list = document.getElementById('orch-trigger-list');
+      while (list.firstChild) list.removeChild(list.firstChild);
+      var entries = Object.entries(state.orchestration.triggerAgents);
+      if (entries.length === 0) {
+        list.appendChild(el('div', { className: 'orch-empty' }, ['No trigger agents configured']));
+        return;
+      }
+      entries.forEach(function(entry) {
+        var name = entry[0], cfg = entry[1];
+        var card = el('div', { className: 'orch-card' });
+        card.appendChild(el('span', { className: 'orch-name' }, [name]));
+        var detail = el('div', { className: 'orch-detail' });
+        detail.appendChild(el('span', { className: 'orch-tag' }, [cfg.pattern || '@' + name]));
+        detail.appendChild(el('span', { className: 'orch-tag ai' }, [cfg.ai || 'claude']));
+        detail.appendChild(el('span', { className: 'orch-tag' }, [cfg.cooldown + 's']));
+        if (cfg.directory) detail.appendChild(el('span', { className: 'orch-tag dir' }, [cfg.directory]));
+        card.appendChild(detail);
+        var removeBtn = el('button', { className: 'orch-remove' }, ['\u00d7']);
+        removeBtn.setAttribute('data-orch-remove-trigger', name);
+        card.appendChild(removeBtn);
+        list.appendChild(card);
+      });
+    }
+
+    function renderPatrolConfig() {
+      var container = document.getElementById('orch-patrol-config');
+      while (container.firstChild) container.removeChild(container.firstChild);
+      var row = el('div', { className: 'orch-patrol-row' });
+      row.appendChild(el('label', {}, ['Interval']));
+      var input = el('input', {
+        className: 'form-input',
+        value: state.orchestration.patrolInterval || '10m',
+        placeholder: '10m',
+      });
+      input.style.width = '80px';
+      input.addEventListener('change', function() {
+        var val = input.value.trim() || '10m';
+        if (!isValidInterval(val)) {
+          showToast('Invalid interval format. Use e.g. 10m, 30s, 1h');
+          input.value = state.orchestration.patrolInterval || '10m';
+          return;
+        }
+        state.orchestration.patrolInterval = val;
+        saveOrchestration();
+        renderOrchPrompts();
+      });
+      row.appendChild(input);
+      container.appendChild(row);
+    }
+
+    function showLoopForm(editName) {
+      var existing = editName ? state.orchestration.loopAgents[editName] : null;
+      var available = getAvailableAgentsFor('loopAgents', editName);
+
+      var list = document.getElementById('orch-loop-list');
+      var oldForm = list.parentNode.querySelector('.orch-form');
+      if (oldForm) oldForm.remove();
+
+      if (available.length === 0 && !editName) {
+        showToast('No available agents. Register agents first.');
+        return;
+      }
+
+      var form = el('div', { className: 'orch-form' });
+
+      var agentSelect = el('select', { className: 'form-input' });
+      available.forEach(function(n) {
+        var opt = el('option', { value: n }, [n]);
+        if (n === editName) opt.selected = true;
+        agentSelect.appendChild(opt);
+      });
+
+      var intervalInput = el('input', { className: 'form-input', value: existing ? existing.interval : '5m', placeholder: '5m' });
+      intervalInput.style.width = '80px';
+
+      var dirInput = el('input', { className: 'form-input', value: existing ? (existing.directory || '') : '', placeholder: 'Directory (default: QQchat dir)' });
+
+      form.appendChild(el('div', { className: 'form-row' }, [
+        el('div', { style: 'flex:1' }, [el('label', {}, ['Agent']), agentSelect]),
+        el('div', { style: 'flex:0 0 auto' }, [el('label', {}, ['Interval']), intervalInput]),
+      ]));
+      form.appendChild(el('div', { className: 'form-row' }, [
+        el('div', { style: 'flex:1' }, [el('label', {}, ['Directory']), dirInput]),
+      ]));
+
+      var saveBtn = el('button', { className: 'btn-primary' }, ['Save']);
+      var cancelBtn = el('button', { className: 'btn-secondary' }, ['Cancel']);
+      form.appendChild(el('div', { className: 'form-actions' }, [saveBtn, cancelBtn]));
+
+      saveBtn.addEventListener('click', function() {
+        var name = agentSelect.value;
+        if (!name) return;
+        var interval = intervalInput.value.trim() || '5m';
+        if (!isValidInterval(interval)) {
+          showToast('Invalid interval format. Use e.g. 5m, 30s, 1h');
+          return;
+        }
+        if (editName && editName !== name) delete state.orchestration.loopAgents[editName];
+        state.orchestration.loopAgents[name] = {
+          interval: interval,
+          directory: dirInput.value.trim(),
+        };
+        saveOrchestration();
+        form.remove();
+        renderLoopAgents();
+        renderOrchPrompts();
+      });
+      cancelBtn.addEventListener('click', function() { form.remove(); });
+
+      list.parentNode.insertBefore(form, list.nextSibling);
+    }
+
+    function showTriggerForm(editName) {
+      var existing = editName ? state.orchestration.triggerAgents[editName] : null;
+      var available = getAvailableAgentsFor('triggerAgents', editName);
+
+      var list = document.getElementById('orch-trigger-list');
+      var oldForm = list.parentNode.querySelector('.orch-form');
+      if (oldForm) oldForm.remove();
+
+      if (available.length === 0 && !editName) {
+        showToast('No available agents. Register agents first.');
+        return;
+      }
+
+      var form = el('div', { className: 'orch-form' });
+
+      var agentSelect = el('select', { className: 'form-input' });
+      available.forEach(function(n) {
+        var opt = el('option', { value: n }, [n]);
+        if (n === editName) opt.selected = true;
+        agentSelect.appendChild(opt);
+      });
+
+      var patternInput = el('input', { className: 'form-input', value: existing ? existing.pattern : '' });
+      patternInput.placeholder = '@AgentName';
+      agentSelect.addEventListener('change', function() {
+        if (!patternInput.value || patternInput.value === '@' + (editName || '')) {
+          patternInput.value = '@' + agentSelect.value;
+        }
+      });
+      if (!existing) {
+        setTimeout(function() { patternInput.value = '@' + agentSelect.value; }, 0);
+      }
+
+      var aiSelect = el('select', { className: 'form-input' });
+      ['claude', 'codex', 'gemini'].forEach(function(ai) {
+        var opt = el('option', { value: ai }, [ai.charAt(0).toUpperCase() + ai.slice(1)]);
+        if (existing && existing.ai === ai) opt.selected = true;
+        aiSelect.appendChild(opt);
+      });
+
+      var cooldownInput = el('input', { className: 'form-input', type: 'number', value: existing ? String(existing.cooldown || 30) : '30' });
+      cooldownInput.style.width = '80px';
+
+      var dirInput = el('input', { className: 'form-input', value: existing ? (existing.directory || '') : '', placeholder: 'Directory (default: QQchat dir)' });
+
+      form.appendChild(el('div', { className: 'form-row' }, [
+        el('div', { style: 'flex:1' }, [el('label', {}, ['Agent']), agentSelect]),
+        el('div', { style: 'flex:0 0 auto;min-width:100px' }, [el('label', {}, ['AI']), aiSelect]),
+      ]));
+      form.appendChild(el('div', { className: 'form-row' }, [
+        el('div', { style: 'flex:1' }, [el('label', {}, ['Pattern']), patternInput]),
+        el('div', { style: 'flex:0 0 auto' }, [el('label', {}, ['Cooldown (s)']), cooldownInput]),
+      ]));
+      form.appendChild(el('div', { className: 'form-row' }, [
+        el('div', { style: 'flex:1' }, [el('label', {}, ['Directory']), dirInput]),
+      ]));
+
+      var saveBtn = el('button', { className: 'btn-primary' }, ['Save']);
+      var cancelBtn = el('button', { className: 'btn-secondary' }, ['Cancel']);
+      form.appendChild(el('div', { className: 'form-actions' }, [saveBtn, cancelBtn]));
+
+      saveBtn.addEventListener('click', function() {
+        var name = agentSelect.value;
+        if (!name) return;
+        var cooldown = parseInt(cooldownInput.value);
+        if (isNaN(cooldown) || cooldown < 1) {
+          showToast('Cooldown must be a positive number (seconds)');
+          return;
+        }
+        if (editName && editName !== name) delete state.orchestration.triggerAgents[editName];
+        state.orchestration.triggerAgents[name] = {
+          pattern: patternInput.value.trim() || '@' + name,
+          cooldown: cooldown,
+          ai: aiSelect.value || 'claude',
+          directory: dirInput.value.trim(),
+        };
+        saveOrchestration();
+        form.remove();
+        renderTriggerAgents();
+        renderOrchPrompts();
+      });
+      cancelBtn.addEventListener('click', function() { form.remove(); });
+
+      list.parentNode.insertBefore(form, list.nextSibling);
+    }
+
+    function buildInitialSetupPrompt() {
+      var loopEntries = Object.entries(state.orchestration.loopAgents);
+      var triggerEntries = Object.entries(state.orchestration.triggerAgents);
+      if (loopEntries.length === 0 && triggerEntries.length === 0) return '';
+
+      var allAgents = {};
+      loopEntries.forEach(function(e) { allAgents[e[0]] = { type: 'loop', cfg: e[1] }; });
+      triggerEntries.forEach(function(e) {
+        if (allAgents[e[0]]) { allAgents[e[0]].triggerCfg = e[1]; }
+        else { allAgents[e[0]] = { type: 'trigger', cfg: e[1] }; }
+      });
+
+      var lines = [];
+      lines.push('以下のQQchatエージェント環境をセットアップしてください。');
+      lines.push('');
+
+      var step = 1;
+
+      lines.push('## ' + step + '. tmux セッション起動');
+      step++;
+      lines.push('');
+      lines.push('tmux new-session -d -s agents -n watch');
+      var agentNames = Object.keys(allAgents);
+      agentNames.forEach(function(name) {
+        lines.push('tmux new-window -t agents -n ' + name);
+      });
+      lines.push('');
+
+      lines.push('## ' + step + '. 各ターミナルで AI を起動');
+      step++;
+      lines.push('');
+      agentNames.forEach(function(name) {
+        var entry = allAgents[name];
+        var dir = entry.cfg.directory || '';
+        if (!dir && entry.triggerCfg && entry.triggerCfg.directory) dir = entry.triggerCfg.directory;
+
+        var ai = 'claude';
+        if (entry.type === 'trigger') ai = entry.cfg.ai || 'claude';
+        if (entry.triggerCfg) ai = entry.triggerCfg.ai || ai;
+
+        var cdCmd = dir ? 'cd ' + dir + ' && ' : '';
+        lines.push("tmux send-keys -t agents:" + name + " '" + cdCmd + ai + "' Enter");
+      });
+      lines.push('');
+      lines.push('AI の起動を 10〜15 秒待ってから、次のステップに進んでください。');
+      lines.push('');
+
+      if (loopEntries.length > 0) {
+        lines.push('## ' + step + '. Loop エージェントに /loop を送信');
+        step++;
+        lines.push('');
+        lines.push('S=~/.claude/skills/tmux/send.sh');
+        loopEntries.forEach(function(entry) {
+          var name = entry[0], cfg = entry[1];
+          var info = state.agents[name];
+          var prompt = info && info.prompt ? info.prompt : '';
+          var loopMsg = '/loop ' + (cfg.interval || '5m') + ' あなたはQQchatのエージェント「' + name + '」です。' + (prompt ? prompt + ' ' : '') + 'chat unread --for ' + name + ' で未読を確認し、未読があれば内容を読んで適切に返信してください。返信は chat send <channel> \'msg\' --agent-name ' + name + ' で送ってください。';
+          lines.push('bash $S --target agents:' + name + ' "' + shellEscapeDQ(loopMsg) + '"');
+        });
+        lines.push('');
+      }
+
+      if (triggerEntries.length > 0) {
+        lines.push('## ' + step + '. 初期プロンプト送信 (Trigger エージェント)');
+        step++;
+        lines.push('');
+        if (loopEntries.length === 0) lines.push('S=~/.claude/skills/tmux/send.sh');
+        triggerEntries.forEach(function(entry) {
+          var name = entry[0], cfg = entry[1];
+          var info = state.agents[name];
+          var prompt = info && info.prompt ? info.prompt : '';
+          var initMsg = 'あなたはQQchatのエージェント「' + name + '」です。' + (prompt ? prompt + ' ' : '') + 'メッセージが届いたら chat unread --for ' + name + ' で確認し、適切に返信してください。返信は chat send <channel> \'msg\' --agent-name ' + name + ' で送ってください。';
+          lines.push('bash $S --target agents:' + name + ' "' + shellEscapeDQ(initMsg) + '"');
+        });
+        lines.push('');
+
+        lines.push('## ' + step + '. triggers.json を作成');
+        step++;
+        lines.push('');
+        lines.push('.chat/triggers.json を以下の内容で作成（または上書き）してください:');
+        lines.push('');
+        var triggers = triggerEntries.map(function(entry) {
+          var name = entry[0], cfg = entry[1];
+          var tmuxMsg = 'QQchatで' + (cfg.pattern || '@' + name) + 'へのメンションがありました。chat unread --for ' + name + ' で未読を確認して返信してください。';
+          return {
+            name: name.toLowerCase() + '-mention',
+            pattern: cfg.pattern || '@' + name,
+            command: "bash ~/.claude/skills/tmux/send.sh --target agents:" + name + " '" + tmuxMsg.replace(/'/g, "'\\''") + "'",
+            cooldown: cfg.cooldown || 30,
+          };
+        });
+        lines.push(JSON.stringify(triggers, null, 2));
+        lines.push('');
+      }
+
+      lines.push('## ' + step + '. メッセージ監視を開始');
+      lines.push('');
+      lines.push("tmux send-keys -t agents:watch 'chat watch' Enter");
+
+      return lines.join('\n');
+    }
+
+    function buildPatrolPrompt() {
+      var loopEntries = Object.entries(state.orchestration.loopAgents);
+      var triggerEntries = Object.entries(state.orchestration.triggerAgents);
+      if (loopEntries.length === 0 && triggerEntries.length === 0) return '';
+
+      var allNames = [];
+      loopEntries.forEach(function(e) { if (allNames.indexOf(e[0]) === -1) allNames.push(e[0]); });
+      triggerEntries.forEach(function(e) { if (allNames.indexOf(e[0]) === -1) allNames.push(e[0]); });
+
+      var interval = state.orchestration.patrolInterval || '10m';
+
+      var lines = [];
+      lines.push('/loop ' + interval + ' 以下のQQchatエージェントの定期巡回を行ってください。');
+      lines.push('');
+      lines.push('## 監視対象エージェント');
+      allNames.forEach(function(name) {
+        var info = state.agents[name];
+        var role = info && info.role ? ' (' + info.role + ')' : '';
+        lines.push('- ' + name + role);
+      });
+      lines.push('');
+      lines.push('## 巡回手順');
+      lines.push('');
+      lines.push('1. 各エージェントの状態を確認:');
+      lines.push('   - `chat unread --for <name>` で未読の溜まり具合をチェック');
+      lines.push('   - 未読が多い（5件以上）場合、エージェントが停止している可能性あり');
+      lines.push('');
+      lines.push('2. 直近のメッセージ活動を確認:');
+      lines.push('   - `chat read <channel> --last 10` で各エージェントの購読チャンネルの最新メッセージを確認');
+      lines.push('   - エージェントが適切に応答しているか判断');
+      lines.push('');
+      lines.push('3. 改善が必要な場合:');
+      lines.push('   - QQchat経由でエージェントにフィードバックを送信:');
+      lines.push("     `chat send <channel> 'フィードバック内容' --agent-name <あなたの名前>`");
+      lines.push('   - エージェントのメモリに学びを追加するよう指示');
+      lines.push('   - 必要であればエージェントのプロンプトを `chat agent update` で更新');
+      lines.push('');
+      lines.push('4. アイドル状態のエージェントの処理:');
+      lines.push('   - エージェントの仕事が一区切りついている場合、tmux経由で /compact を送信:');
+      lines.push('     `bash ~/.claude/skills/tmux/send.sh --target agents:<name> "/compact"`');
+      lines.push('');
+      lines.push('5. tmuxセッションの生存確認:');
+      lines.push('   - `tmux list-windows -t agents` で各ウィンドウが存在するか確認');
+      lines.push('   - 消えているウィンドウがあれば再起動を検討');
+
+      return lines.join('\n');
+    }
+
+    function buildPromptSection(title, promptText) {
+      var section = el('div', { className: 'orch-prompt-section' });
+      var header = el('div', { className: 'orch-prompt-header' }, ['\u25B6 ' + title]);
+      var body = el('div', { className: 'orch-prompt-body' });
+      body.style.display = 'none';
+
+      header.addEventListener('click', function() {
+        var collapsed = body.style.display === 'none';
+        body.style.display = collapsed ? '' : 'none';
+        header.textContent = (collapsed ? '\u25BC ' : '\u25B6 ') + title;
+      });
+
+      body.appendChild(el('div', { className: 'orch-code' }, [promptText]));
+
+      var copyBtn = el('button', { className: 'orch-copy-btn' }, ['Copy']);
+      copyBtn.addEventListener('click', function() {
+        navigator.clipboard.writeText(promptText).then(function() {
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(function() { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+        });
+      });
+      var copyRow = el('div', { className: 'orch-copy-row' });
+      copyRow.appendChild(copyBtn);
+      body.appendChild(copyRow);
+
+      section.appendChild(header);
+      section.appendChild(body);
+      return section;
+    }
+
+    function renderOrchPrompts() {
+      var container = document.getElementById('orch-prompts');
+      while (container.firstChild) container.removeChild(container.firstChild);
+
+      var initPrompt = buildInitialSetupPrompt();
+      var patrolPrompt = buildPatrolPrompt();
+
+      if (!initPrompt && !patrolPrompt) return;
+
+      container.appendChild(el('div', { className: 'section-label' }, ['Generated Prompts']));
+
+      if (initPrompt) container.appendChild(buildPromptSection('Initial Setup', initPrompt));
+      if (patrolPrompt) container.appendChild(buildPromptSection('Patrol Loop', patrolPrompt));
+    }
+
     // --- Channels Panel ---
 
     async function fetchAndRenderChannelsPanel() {
@@ -2722,6 +3303,41 @@
       let memToggle = e.target.closest('[data-agent-memory]');
       if (memToggle) {
         loadAgentMemories(memToggle.getAttribute('data-agent-memory'));
+        return;
+      }
+    });
+
+    document.getElementById('orch-add-loop').addEventListener('click', function() {
+      showLoopForm(null);
+    });
+    document.getElementById('orch-add-trigger').addEventListener('click', function() {
+      showTriggerForm(null);
+    });
+    document.getElementById('orch-content').addEventListener('click', function(e) {
+      var removeLoop = e.target.closest('[data-orch-remove-loop]');
+      if (removeLoop) {
+        delete state.orchestration.loopAgents[removeLoop.getAttribute('data-orch-remove-loop')];
+        saveOrchestration();
+        renderLoopAgents();
+        renderOrchPrompts();
+        return;
+      }
+      var removeTrig = e.target.closest('[data-orch-remove-trigger]');
+      if (removeTrig) {
+        delete state.orchestration.triggerAgents[removeTrig.getAttribute('data-orch-remove-trigger')];
+        saveOrchestration();
+        renderTriggerAgents();
+        renderOrchPrompts();
+        return;
+      }
+      var loopCard = e.target.closest('.orch-card [data-orch-remove-loop]') ? null : e.target.closest('#orch-loop-list .orch-card');
+      if (loopCard) {
+        showLoopForm(loopCard.querySelector('.orch-name').textContent);
+        return;
+      }
+      var trigCard = e.target.closest('.orch-card [data-orch-remove-trigger]') ? null : e.target.closest('#orch-trigger-list .orch-card');
+      if (trigCard) {
+        showTriggerForm(trigCard.querySelector('.orch-name').textContent);
         return;
       }
     });
