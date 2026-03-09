@@ -1097,6 +1097,20 @@
       padding-left: 20px;
     }
     .msg-content .md-list li { margin: 2px 0; }
+    .msg-content .md-list ul, .msg-content .md-list ol { margin: 2px 0; padding-left: 18px; }
+    /* Markdown code blocks */
+    .msg-content pre.md-codeblock {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 12px 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 6px 0;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .msg-content pre.md-codeblock code { background: none; padding: 0; font-size: inherit; }
     #search-btn {
       background: none;
       border: none;
@@ -1267,7 +1281,13 @@
             <textarea id="agent-prompt-input" class="form-input" placeholder="System prompt (optional) — instructions for this agent" rows="4" style="resize:vertical;font-family:monospace;font-size:0.85em;"></textarea>
           </div>
           <div class="form-row">
-            <input type="text" id="agent-channels-input" class="form-input" placeholder="Channels (comma separated)" />
+            <label style="font-size:13px;color:var(--text-muted);margin-bottom:4px;display:block;">Channels</label>
+            <div id="agent-channels-checkboxes" style="display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px;border:1px solid var(--border);border-radius:6px;max-height:120px;overflow-y:auto;">
+            </div>
+            <div style="margin-top:4px;">
+              <button type="button" class="btn-sm" id="agent-channels-all">All</button>
+              <button type="button" class="btn-sm" id="agent-channels-none">None</button>
+            </div>
           </div>
           <div class="form-actions">
             <button class="btn-primary" id="agent-submit-btn">Save</button>
@@ -1784,6 +1804,10 @@
           return '<span class="mention' + (isMe ? ' me' : '') + '">' + match + '</span>';
         }
       );
+      // Markdown fenced code blocks (```...```)
+      escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre class="md-codeblock"><code>' + code.replace(/\n$/, '') + '</code></pre>';
+      });
       // Basic markdown: **bold**, `code`
       escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
       escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:13px;">$1</code>');
@@ -1810,12 +1834,29 @@
         html += '</table>';
         return html;
       });
-      // Markdown unordered lists (- item or * item)
-      escaped = escaped.replace(/((?:^[\-\*] .+$\n?)+)/gm, function(block) {
-        let items = block.trim().split('\n');
-        return '<ul class="md-list">' + items.map(function(item) {
-          return '<li>' + item.replace(/^[\-\*] /, '') + '</li>';
-        }).join('') + '</ul>';
+      // Markdown unordered lists with nesting (- item, then indented - sub)
+      escaped = escaped.replace(/((?:^[ ]*[\-\*] .+$\n?)+)/gm, function(block) {
+        let lines = block.replace(/\n$/, '').split('\n');
+        function buildList(lines, startIdx, baseIndent) {
+          let html = '<ul class="md-list">';
+          let i = startIdx;
+          while (i < lines.length) {
+            let line = lines[i];
+            let indent = line.match(/^( *)/)[1].length;
+            if (indent < baseIndent) break;
+            if (indent > baseIndent) {
+              let sub = buildList(lines, i, indent);
+              html = html.replace(/<\/li>$/, '') + sub.html + '</li>';
+              i = sub.nextIdx;
+            } else {
+              html += '<li>' + line.replace(/^ *[\-\*] /, '') + '</li>';
+              i++;
+            }
+          }
+          html += '</ul>';
+          return { html: html, nextIdx: i };
+        }
+        return buildList(lines, 0, 0).html;
       });
       // Markdown ordered lists (1. item)
       escaped = escaped.replace(/((?:^\d+\. .+$\n?)+)/gm, function(block) {
@@ -1957,10 +1998,15 @@
           let replies = getThreadReplies(msg.reply_to);
           if (badge) {
             badge.textContent = replies.length + (replies.length === 1 ? ' reply' : ' replies');
-            // If thread is expanded, append the new reply
+            // If thread is expanded, insert the new reply before the reply input row
             let threadContainer = document.querySelector('[data-thread-container="' + msg.reply_to + '"]');
             if (threadContainer) {
-              threadContainer.appendChild(createMessageEl(msg));
+              let replyRow = threadContainer.querySelector('.thread-reply-row');
+              if (replyRow) {
+                threadContainer.insertBefore(createMessageEl(msg), replyRow);
+              } else {
+                threadContainer.appendChild(createMessageEl(msg));
+              }
             }
           } else {
             let newBadge = el('div', { className: 'thread-badge', 'data-thread-toggle': msg.reply_to }, [
@@ -2480,7 +2526,20 @@
       }
       document.getElementById('agent-desc-input').value = agentData ? (agentData.description || '') : '';
       document.getElementById('agent-prompt-input').value = agentData ? (agentData.prompt || '') : '';
-      document.getElementById('agent-channels-input').value = agentData ? (agentData.channels || []).join(', ') : '';
+      // Populate channel checkboxes
+      let chContainer = document.getElementById('agent-channels-checkboxes');
+      while (chContainer.firstChild) chContainer.removeChild(chContainer.firstChild);
+      let selectedChannels = agentData ? (agentData.channels || []) : [];
+      state.channels.forEach(function(ch) {
+        let checked = selectedChannels.indexOf(ch.name) !== -1;
+        let cb = el('input', { type: 'checkbox', value: ch.name, checked: checked });
+        cb.className = 'agent-channel-cb';
+        cb.id = 'agent-ch-' + ch.name;
+        let lbl = el('label', { htmlFor: 'agent-ch-' + ch.name, style: 'font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;' }, []);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode('# ' + ch.name));
+        chContainer.appendChild(lbl);
+      });
       state.editingAgent = agentData ? agentData.name : null;
     }
 
@@ -2492,7 +2551,8 @@
       document.getElementById('agent-role-custom').style.display = 'none';
       document.getElementById('agent-desc-input').value = '';
       document.getElementById('agent-prompt-input').value = '';
-      document.getElementById('agent-channels-input').value = '';
+      let cbs = document.querySelectorAll('.agent-channel-cb');
+      cbs.forEach(function(cb) { cb.checked = false; });
       state.editingAgent = null;
     }
 
@@ -2508,8 +2568,8 @@
       let role = getAgentRoleValue();
       let prompt = document.getElementById('agent-prompt-input').value.trim();
       let desc = document.getElementById('agent-desc-input').value.trim();
-      let channelsStr = document.getElementById('agent-channels-input').value.trim();
-      let channels = channelsStr ? channelsStr.split(',').map(function(s) { return s.trim().replace(/^#/, ''); }).filter(Boolean) : [];
+      let channels = [];
+      document.querySelectorAll('.agent-channel-cb:checked').forEach(function(cb) { channels.push(cb.value); });
 
       await fetch('/api/agents', {
         method: 'POST',
@@ -3122,12 +3182,16 @@
         sumContent.setAttribute('data-summary-content', ch.name);
         sumContent.style.display = 'none';
 
-        let card = el('div', { className: 'card' }, [
-          el('div', { className: 'card-header' }, [
+        let headerChildren = [
             el('span', { className: 'card-title' }, ['# ' + ch.name]),
             statusDot,
             el('span', { className: 'channel-status-text' }, [ch.status || 'active']),
-          ]),
+          ];
+        if (ch.message_count != null) {
+          headerChildren.push(el('span', { style: 'margin-left:auto;color:var(--text-muted);font-size:12px;' }, [ch.message_count + ' messages']));
+        }
+        let card = el('div', { className: 'card' }, [
+          el('div', { className: 'card-header' }, headerChildren),
           cardBody,
           sumToggle,
           sumContent,
@@ -3291,6 +3355,12 @@
       openAgentForm(null);
     });
     document.getElementById('agent-submit-btn').addEventListener('click', saveAgent);
+    document.getElementById('agent-channels-all').addEventListener('click', function() {
+      document.querySelectorAll('.agent-channel-cb').forEach(function(cb) { cb.checked = true; });
+    });
+    document.getElementById('agent-channels-none').addEventListener('click', function() {
+      document.querySelectorAll('.agent-channel-cb').forEach(function(cb) { cb.checked = false; });
+    });
     document.getElementById('agent-cancel-btn').addEventListener('click', function() {
       document.getElementById('agent-form').style.display = 'none';
       clearAgentForm();
