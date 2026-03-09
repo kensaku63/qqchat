@@ -945,6 +945,14 @@
     .orch-prompt-body { padding: 16px; }
     .orch-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
     .orch-patrol-row { margin: 8px 20px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .orch-description { padding: 4px 20px 8px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .section-desc { font-weight: 400; text-transform: none; letter-spacing: 0; color: #999; margin-left: 6px; font-size: 11px; }
+    .orch-role-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .orch-role-text { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+    .orch-copy-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .orch-copy-btn.primary:hover { background: #6d28d9; border-color: #6d28d9; }
+    .orch-copy-btn.primary.copied { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .orch-prompt-header-actions { margin-left: auto; display: flex; gap: 6px; }
 
     /* Context raw */
     .context-raw {
@@ -1280,18 +1288,19 @@
         <div class="panel-header">
           <h2>Orchestration</h2>
         </div>
+        <div class="orch-description">AIエージェントの自律運用を設定し、セットアップ用のプロンプトを生成します</div>
         <div id="orch-content">
-          <div class="section-label">Loop Agents</div>
+          <div class="section-label">Loop Agents <span class="section-desc">— 定期的に自動実行されるエージェント</span></div>
           <div id="orch-loop-list"></div>
           <div style="padding:4px 20px 12px">
             <button class="btn-sm" id="orch-add-loop">+ Add</button>
           </div>
-          <div class="section-label">Trigger Agents</div>
+          <div class="section-label">Trigger Agents <span class="section-desc">— メンション等のイベントで起動するエージェント</span></div>
           <div id="orch-trigger-list"></div>
           <div style="padding:4px 20px 12px">
             <button class="btn-sm" id="orch-add-trigger">+ Add</button>
           </div>
-          <div class="section-label">Patrol</div>
+          <div class="section-label">Patrol <span class="section-desc">— エージェント全体の稼働状態を監視する巡回設定</span></div>
           <div id="orch-patrol-config"></div>
           <div id="orch-prompts"></div>
         </div>
@@ -2672,7 +2681,13 @@
       entries.forEach(function(entry) {
         var name = entry[0], cfg = entry[1];
         var card = el('div', { className: 'orch-card' });
+        var agentInfo = state.agents[name];
+        var role = agentInfo && agentInfo.role ? agentInfo.role : '';
+        var dot = el('span', { className: 'orch-role-dot' });
+        dot.style.backgroundColor = getRoleColor(role);
+        card.appendChild(dot);
         card.appendChild(el('span', { className: 'orch-name' }, [name]));
+        if (role) card.appendChild(el('span', { className: 'orch-role-text' }, [role]));
         var detail = el('div', { className: 'orch-detail' });
         detail.appendChild(el('span', { className: 'orch-tag' }, [cfg.interval || '5m']));
         detail.appendChild(el('span', { className: 'orch-tag ai' }, [cfg.ai || 'claude']));
@@ -2696,7 +2711,13 @@
       entries.forEach(function(entry) {
         var name = entry[0], cfg = entry[1];
         var card = el('div', { className: 'orch-card' });
+        var agentInfo = state.agents[name];
+        var role = agentInfo && agentInfo.role ? agentInfo.role : '';
+        var dot = el('span', { className: 'orch-role-dot' });
+        dot.style.backgroundColor = getRoleColor(role);
+        card.appendChild(dot);
         card.appendChild(el('span', { className: 'orch-name' }, [name]));
+        if (role) card.appendChild(el('span', { className: 'orch-role-text' }, [role]));
         var detail = el('div', { className: 'orch-detail' });
         detail.appendChild(el('span', { className: 'orch-tag' }, [cfg.pattern || '@' + name]));
         detail.appendChild(el('span', { className: 'orch-tag ai' }, [cfg.ai || 'claude']));
@@ -2847,8 +2868,33 @@
         aiSelect.appendChild(opt);
       });
 
-      var cooldownInput = el('input', { className: 'form-input', type: 'number', value: existing ? String(existing.cooldown || 30) : '30' });
-      cooldownInput.style.width = '80px';
+      var cooldownPresets = [
+        { value: '15', label: '15s (高頻度)' },
+        { value: '30', label: '30s (推奨)' },
+        { value: '60', label: '60s' },
+        { value: '120', label: '120s (低頻度)' },
+        { value: 'custom', label: 'カスタム...' },
+      ];
+      var currentCooldown = existing ? String(existing.cooldown || 30) : '30';
+      var isPreset = cooldownPresets.some(function(p) { return p.value === currentCooldown && p.value !== 'custom'; });
+
+      var cooldownSelect = el('select', { className: 'form-input' });
+      cooldownPresets.forEach(function(p) {
+        var opt = el('option', { value: p.value }, [p.label]);
+        if ((isPreset && p.value === currentCooldown) || (!isPreset && p.value === 'custom')) opt.selected = true;
+        cooldownSelect.appendChild(opt);
+      });
+
+      var cooldownCustomInput = el('input', { className: 'form-input', type: 'number', placeholder: '秒数', value: isPreset ? '' : currentCooldown });
+      cooldownCustomInput.style.width = '70px';
+      cooldownCustomInput.style.display = isPreset ? 'none' : '';
+
+      cooldownSelect.addEventListener('change', function() {
+        cooldownCustomInput.style.display = cooldownSelect.value === 'custom' ? '' : 'none';
+        if (cooldownSelect.value !== 'custom') cooldownCustomInput.value = '';
+      });
+
+      var cooldownWrapper = el('div', { style: 'display:flex;gap:6px;align-items:flex-end' }, [cooldownSelect, cooldownCustomInput]);
 
       var dirInput = el('input', { className: 'form-input', value: existing ? (existing.directory || '') : '', placeholder: 'Directory (default: QQchat dir)' });
 
@@ -2858,7 +2904,7 @@
       ]));
       form.appendChild(el('div', { className: 'form-row' }, [
         el('div', { style: 'flex:1' }, [el('label', {}, ['Pattern']), patternInput]),
-        el('div', { style: 'flex:0 0 auto' }, [el('label', {}, ['Cooldown (s)']), cooldownInput]),
+        el('div', { style: 'flex:0 0 auto' }, [el('label', {}, ['Cooldown']), cooldownWrapper]),
       ]));
       form.appendChild(el('div', { className: 'form-row' }, [
         el('div', { style: 'flex:1' }, [el('label', {}, ['Directory']), dirInput]),
@@ -2871,7 +2917,7 @@
       saveBtn.addEventListener('click', function() {
         var name = agentSelect.value;
         if (!name) return;
-        var cooldown = parseInt(cooldownInput.value);
+        var cooldown = cooldownSelect.value === 'custom' ? parseInt(cooldownCustomInput.value) : parseInt(cooldownSelect.value);
         if (isNaN(cooldown) || cooldown < 1) {
           showToast('Cooldown must be a positive number (seconds)');
           return;
@@ -3042,26 +3088,41 @@
       return lines.join('\n');
     }
 
-    function buildPromptSection(title, promptText) {
+    function buildPromptSection(title, promptText, expanded) {
       var section = el('div', { className: 'orch-prompt-section' });
-      var header = el('div', { className: 'orch-prompt-header' }, ['\u25B6 ' + title]);
+      var headerText = el('span', {}, [(expanded ? '\u25BC ' : '\u25B6 ') + title]);
+
+      var headerCopyBtn = el('button', { className: 'orch-copy-btn primary' }, ['Copy']);
+      headerCopyBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        navigator.clipboard.writeText(promptText).then(function() {
+          headerCopyBtn.textContent = 'Copied!';
+          headerCopyBtn.classList.add('copied');
+          showToast('Copied to clipboard!');
+          setTimeout(function() { headerCopyBtn.textContent = 'Copy'; headerCopyBtn.classList.remove('copied'); }, 2000);
+        });
+      });
+      var headerActions = el('div', { className: 'orch-prompt-header-actions' }, [headerCopyBtn]);
+      var header = el('div', { className: 'orch-prompt-header' }, [headerText, headerActions]);
+
       var body = el('div', { className: 'orch-prompt-body' });
-      body.style.display = 'none';
+      body.style.display = expanded ? '' : 'none';
 
       header.addEventListener('click', function() {
         var collapsed = body.style.display === 'none';
         body.style.display = collapsed ? '' : 'none';
-        header.textContent = (collapsed ? '\u25BC ' : '\u25B6 ') + title;
+        headerText.textContent = (collapsed ? '\u25BC ' : '\u25B6 ') + title;
       });
 
       body.appendChild(el('div', { className: 'orch-code' }, [promptText]));
 
-      var copyBtn = el('button', { className: 'orch-copy-btn' }, ['Copy']);
+      var copyBtn = el('button', { className: 'orch-copy-btn primary' }, ['Copy Prompt']);
       copyBtn.addEventListener('click', function() {
         navigator.clipboard.writeText(promptText).then(function() {
           copyBtn.textContent = 'Copied!';
           copyBtn.classList.add('copied');
-          setTimeout(function() { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 2000);
+          showToast('Copied to clipboard!');
+          setTimeout(function() { copyBtn.textContent = 'Copy Prompt'; copyBtn.classList.remove('copied'); }, 2000);
         });
       });
       var copyRow = el('div', { className: 'orch-copy-row' });
@@ -3084,8 +3145,9 @@
 
       container.appendChild(el('div', { className: 'section-label' }, ['Generated Prompts']));
 
-      if (initPrompt) container.appendChild(buildPromptSection('Initial Setup', initPrompt));
-      if (patrolPrompt) container.appendChild(buildPromptSection('Patrol Loop', patrolPrompt));
+      var hasAgents = Object.keys(state.orchestration.loopAgents).length > 0 || Object.keys(state.orchestration.triggerAgents).length > 0;
+      if (initPrompt) container.appendChild(buildPromptSection('Initial Setup', initPrompt, hasAgents));
+      if (patrolPrompt) container.appendChild(buildPromptSection('Patrol Loop', patrolPrompt, false));
     }
 
     // --- Channels Panel ---
