@@ -793,13 +793,14 @@ async function cmdAgent(args: string[]) {
     const { positional, flags } = parseArgs(subArgs);
     const name = positional.join(" ");
     if (!name) {
-      console.error("Usage: chat agent create <name> --role <role> [--channels ch1,ch2] [--description \"...\"]");
+      console.error("Usage: chat agent create <name> [--role <role>] [--prompt \"...\"] [--channels ch1,ch2] [--description \"...\"]");
       process.exit(1);
     }
 
     const chatDir = requireChatDir();
     const config = readConfig(chatDir);
     const role = (flags.role as string) || "";
+    const prompt = (flags.prompt as string) || "";
     const description = (flags.description as string) || "";
     const channels = flags.channels ? (flags.channels as string).split(",") : [];
 
@@ -811,7 +812,7 @@ async function cmdAgent(args: string[]) {
           const res = await fetch(`${url}/api/agents`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, role, description, channels }),
+            body: JSON.stringify({ name, role, prompt, description, channels }),
             signal: AbortSignal.timeout(5000),
           });
           if (res.ok) { sent = true; break; }
@@ -819,7 +820,7 @@ async function cmdAgent(args: string[]) {
       }
       if (!sent) { console.error("Error: Failed to register agent on upstream"); process.exit(1); }
     } else {
-      const metadata = JSON.stringify({ agent_config: { name, role, description, channels } });
+      const metadata = JSON.stringify({ agent_config: { name, role, prompt, description, channels } });
       await sendToUpstream(chatDir, "_system", config.identity, `Register agent: ${name}`, undefined, metadata);
     }
     console.log(`Agent registered: ${name} (${role || "no role"})`);
@@ -1001,9 +1002,13 @@ async function cmdContext(args: string[]) {
   } else {
     output.push("\n---\n## Agent Identity\n");
     output.push(`- Name: ${agentName}`);
-    output.push(`- Role: ${agentInfo.role}`);
+    if (agentInfo.role) output.push(`- Role: ${agentInfo.role}`);
     output.push(`- Description: ${agentInfo.description || "(none)"}`);
     output.push(`- Channels: ${agentInfo.channels.join(", ")}`);
+    if (agentInfo.prompt) {
+      output.push(`\n### System Prompt\n`);
+      output.push(agentInfo.prompt);
+    }
   }
 
   // L3: Agent memories
@@ -1253,6 +1258,7 @@ Commands:
 
   agent create <name>             Register an agent
     --role <role>                 Agent role (e.g. builder, reviewer)
+    --prompt "..."                System prompt for the agent
     --channels ch1,ch2            Assigned channels
   agent list                      List registered agents
   agent remove <name>             Remove an agent

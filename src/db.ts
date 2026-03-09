@@ -387,6 +387,7 @@ export function getSummaries(db: Database, channel?: string, last?: number): Sum
 export interface AgentConfigData {
   name: string;
   role: string;
+  prompt: string;
   description: string;
   channels: string[];
   removed?: boolean;
@@ -415,6 +416,7 @@ export function getAgentConfigs(db: Database): Record<string, AgentConfigData> {
         result[cfg.name] = {
           name: cfg.name,
           role: cfg.role || "",
+          prompt: cfg.prompt || "",
           description: cfg.description || "",
           channels: cfg.channels || [],
         };

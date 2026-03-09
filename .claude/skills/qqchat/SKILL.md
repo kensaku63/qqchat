@@ -116,7 +116,7 @@ chat task update <id> --status done                     # タスク完了
 
 ```bash
 chat agent list                                     # エージェント一覧
-chat agent create <name> --role <role> [--channels ch1,ch2]  # 登録
+chat agent create <name> --role <role> [--prompt "..."] [--channels ch1,ch2]  # 登録
 chat agent remove <name>                            # 削除
 ```
 

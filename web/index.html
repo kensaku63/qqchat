@@ -683,6 +683,8 @@
     .field-label { color: var(--text-muted); font-size: 12px; }
     .field-value { font-size: 13px; }
     .card-desc { font-size: 13px; color: #555; margin-top: 4px; }
+    .prompt-preview { font-family: monospace; font-size: 12px; color: var(--text-muted); }
+    .agent-prompt-field { margin-top: 4px; }
     .card-detail { font-size: 12px; color: var(--text-muted); padding: 4px 16px 8px; }
     .card-actions { display: flex; gap: 6px; margin-top: 8px; }
 
@@ -1155,7 +1157,10 @@
             <input type="text" id="agent-role-custom" class="form-input" placeholder="Custom role" style="display:none;" />
           </div>
           <div class="form-row">
-            <textarea id="agent-desc-input" class="form-input" placeholder="Description (optional)" rows="3" style="resize:vertical;"></textarea>
+            <textarea id="agent-desc-input" class="form-input" placeholder="Description (optional)" rows="2" style="resize:vertical;"></textarea>
+          </div>
+          <div class="form-row">
+            <textarea id="agent-prompt-input" class="form-input" placeholder="System prompt (optional) — instructions for this agent" rows="4" style="resize:vertical;font-family:monospace;font-size:0.85em;"></textarea>
           </div>
           <div class="form-row">
             <input type="text" id="agent-channels-input" class="form-input" placeholder="Channels (comma separated)" />
@@ -2296,6 +2301,15 @@
         if (info.description) {
           cardBody.appendChild(el('div', { className: 'card-desc' }, [info.description]));
         }
+        if (info.prompt) {
+          let promptPreview = info.prompt.length > 80 ? info.prompt.slice(0, 80) + '…' : info.prompt;
+          let promptEl = el('div', { className: 'card-field agent-prompt-field' }, [
+            el('span', { className: 'field-label' }, ['Prompt ']),
+            el('span', { className: 'field-value prompt-preview' }, [promptPreview]),
+          ]);
+          promptEl.title = info.prompt;
+          cardBody.appendChild(promptEl);
+        }
 
         if (!state.publicRead) {
           let editBtn = el('button', { className: 'btn-sm' }, ['Edit']);
@@ -2339,6 +2353,7 @@
         roleCustom.style.display = 'none';
       }
       document.getElementById('agent-desc-input').value = agentData ? (agentData.description || '') : '';
+      document.getElementById('agent-prompt-input').value = agentData ? (agentData.prompt || '') : '';
       document.getElementById('agent-channels-input').value = agentData ? (agentData.channels || []).join(', ') : '';
       state.editingAgent = agentData ? agentData.name : null;
     }
@@ -2350,6 +2365,7 @@
       document.getElementById('agent-role-custom').value = '';
       document.getElementById('agent-role-custom').style.display = 'none';
       document.getElementById('agent-desc-input').value = '';
+      document.getElementById('agent-prompt-input').value = '';
       document.getElementById('agent-channels-input').value = '';
       state.editingAgent = null;
     }
@@ -2364,6 +2380,7 @@
       let name = document.getElementById('agent-name-input').value.trim();
       if (!name) return;
       let role = getAgentRoleValue();
+      let prompt = document.getElementById('agent-prompt-input').value.trim();
       let desc = document.getElementById('agent-desc-input').value.trim();
       let channelsStr = document.getElementById('agent-channels-input').value.trim();
       let channels = channelsStr ? channelsStr.split(',').map(function(s) { return s.trim().replace(/^#/, ''); }).filter(Boolean) : [];
@@ -2371,7 +2388,7 @@
       await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, role: role, description: desc, channels: channels }),
+        body: JSON.stringify({ name: name, role: role, prompt: prompt, description: desc, channels: channels }),
       });
       document.getElementById('agent-form').style.display = 'none';
       clearAgentForm();
@@ -2694,7 +2711,7 @@
       if (editBtn) {
         let name = editBtn.getAttribute('data-edit-agent');
         let agentInfo = state.agents[name];
-        if (agentInfo) openAgentForm({ name: name, role: agentInfo.role, description: agentInfo.description, channels: agentInfo.channels });
+        if (agentInfo) openAgentForm({ name: name, role: agentInfo.role, prompt: agentInfo.prompt, description: agentInfo.description, channels: agentInfo.channels });
         return;
       }
       let deleteBtn = e.target.closest('[data-delete-agent]');
