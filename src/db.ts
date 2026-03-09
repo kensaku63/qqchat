@@ -143,7 +143,7 @@ export function getAllMessages(db: Database): Message[] {
 }
 
 export function getChannels(db: Database): { name: string; created_at: string }[] {
-  return db.prepare("SELECT * FROM channels WHERE name != '_system' ORDER BY name").all() as any[];
+  return db.prepare("SELECT * FROM channels ORDER BY CASE WHEN name = '_system' THEN 1 ELSE 0 END, name").all() as any[];
 }
 
 export function createChannel(db: Database, name: string): void {

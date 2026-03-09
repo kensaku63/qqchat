@@ -16,10 +16,14 @@ function getLocalIp(): string {
 function getMergedChannels(db: import("bun:sqlite").Database) {
   const dbChannels = getChannels(db);
   const configs = getChannelConfigs(db);
+  const counts = db.prepare("SELECT channel, COUNT(*) as count FROM messages GROUP BY channel").all() as { channel: string; count: number }[];
+  const countMap: Record<string, number> = {};
+  for (const row of counts) countMap[row.channel] = row.count;
   return dbChannels.map(ch => ({
     ...ch,
     description: configs[ch.name]?.description || "",
     status: configs[ch.name]?.status || "active",
+    message_count: countMap[ch.name] || 0,
   }));
 }
 
