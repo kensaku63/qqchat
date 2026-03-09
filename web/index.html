@@ -1782,6 +1782,19 @@
       // Content（@メンション + [ref:ID] をハイライト）
       let content = el('div', { className: 'msg-content' });
       let escaped = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Extract code blocks/inline code FIRST to protect from further formatting
+      let codeSlots = [];
+      escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        let idx = codeSlots.length;
+        let langAttr = lang ? ' data-lang="' + lang + '"' : '';
+        codeSlots.push('<pre class="md-codeblock"' + langAttr + '><code>' + code.replace(/\n$/, '') + '</code></pre>');
+        return '\x00CODE' + idx + '\x00';
+      });
+      escaped = escaped.replace(/`([^`]+)`/g, function(match, code) {
+        let idx = codeSlots.length;
+        codeSlots.push('<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:13px;">' + code + '</code>');
+        return '\x00CODE' + idx + '\x00';
+      });
       // [ref:ID] → clickable link
       escaped = escaped.replace(
         /\[ref:([a-z0-9_]+)\]/g,
@@ -1804,13 +1817,8 @@
           return '<span class="mention' + (isMe ? ' me' : '') + '">' + match + '</span>';
         }
       );
-      // Markdown fenced code blocks (```...```)
-      escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        return '<pre class="md-codeblock"><code>' + code.replace(/\n$/, '') + '</code></pre>';
-      });
-      // Basic markdown: **bold**, `code`
+      // Basic markdown: **bold**
       escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:13px;">$1</code>');
       // Markdown headings (### → h3, ## → h2, # → h1) — line-start only
       escaped = escaped.replace(/^(#{1,3}) (.+)$/gm, function(match, hashes, text) {
         let level = hashes.length;
@@ -1865,7 +1873,11 @@
           return '<li>' + item.replace(/^\d+\. /, '') + '</li>';
         }).join('') + '</ol>';
       });
-      content.innerHTML = escaped;
+      // Restore code blocks from placeholders
+      for (let ci = 0; ci < codeSlots.length; ci++) {
+        escaped = escaped.replace('\x00CODE' + ci + '\x00', codeSlots[ci]);
+      }
+      content.innerHTML = escaped; // escaped via escapeHtml + code blocks protected by placeholders
 
       // Body
       let bodyChildren = [];
