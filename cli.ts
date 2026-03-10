@@ -274,7 +274,7 @@ async function cmdSync() {
 async function cmdSend(args: string[]) {
   const { positional, flags } = parseArgs(args);
   const channel = positional[0];
-  const content = positional.slice(1).join(" ");
+  let content = positional.slice(1).join(" ");
 
   if (!channel || !content) {
     console.error("Usage: chat send <channel> <message> [--agent] [--agent-name <name>]");
@@ -295,6 +295,17 @@ async function cmdSend(args: string[]) {
   let replyTo = flags["reply-to"] as string | undefined;
   if (replyTo) {
     const db = openDb(chatDir);
+    // Auto-prepend @mention of the direct reply target's author
+    const originalMsg = getMessage(db, replyTo);
+    if (originalMsg) {
+      const raw = originalMsg.author;
+      const authorName = raw.includes(":")
+        ? raw.split(":")[1].split("@")[0]
+        : raw.split("@")[0];
+      if (authorName && !content.includes("@" + authorName)) {
+        content = "@" + authorName + " " + content;
+      }
+    }
     replyTo = resolveThreadRoot(db, replyTo);
     db.close();
   }
