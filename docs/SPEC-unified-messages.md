@@ -428,7 +428,7 @@ sync は `/api/sync` のメッセージ取得だけで完結する。
 ## Architecture
 
   cli.ts            CLI entry point, all commands
-  src/server.ts     HTTP/WebSocket server (Bun.serve), standby/tunnel
+  src/server.ts     HTTP/WebSocket server (Bun.serve), tunnel
   src/db.ts         SQLite schema, queries, all data operations
   src/config.ts     Node-local config (.chat/config.json)
   src/sync.ts       Upstream sync (message-based, single endpoint)

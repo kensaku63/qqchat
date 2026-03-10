@@ -100,14 +100,6 @@ chat serve --no-tunnel              # トンネルなし（ローカルのみ）
 - `https://chat.example.com` でチャットにアクセスできるようになる
 - チームメンバーは `chat join https://chat.example.com` で参加できる
 
-### バックアップ待機（Member向け）
-
-```bash
-chat serve --standby
-```
-
-Ownerが落ちた場合にフェイルオーバーする待機モード。
-
 ## 5. 高可用性（backup_owners）
 
 Ownerが落ちても会話を継続できるフェイルオーバー機能。
@@ -119,13 +111,13 @@ Ownerが落ちても会話を継続できるフェイルオーバー機能。
    ```json
    { "backup_owners": ["http://backup1:4321", "http://backup2:4321"] }
    ```
-3. バックアップメンバーが `chat serve --standby` で待機開始
+3. バックアップノード側も通常どおり `chat serve` でサーバーを起動しておく
 
 ### フェイルオーバー動作
 
 - **通常時**: バックアップは5秒ごとにPrimaryを監視し待機
 - **Primary障害時**: 3回接続失敗でバックアップが自動起動
-- **Primary復帰時**: 差分をPrimaryにマージしスタンバイに戻る
+- **Primary復帰時**: Primary起動時に backup_owners から差分をマージ
 - **メンバー側**: Primary → バックアップの順で自動フォールバック
 
 ## 6. データ構造

@@ -6,7 +6,7 @@ import { findChatDir, requireChatDir, readConfig, writeConfig, type ChatConfig }
 import { openDb, createChannel, getChannels, queryMessages, getThread, getUnreadMessages, idToTime, getTasks, getMessage, getMembers, getMemories, getSummaries, resolveThreadRoot, generateId, insertMessage, getAgentConfigs, getChannelConfigs, type ThreadedMessage, type AgentConfigData } from "./src/db";
 import { sync, sendToUpstream, getUpstreamUrls } from "./src/sync";
 import { readReaderCursor, writeReaderCursor } from "./src/config";
-import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, startStandbyMode, syncFromBackups } from "./src/server";
+import { startServer, startTunnel, startNamedTunnel, isCloudflaredLoggedIn, syncFromBackups } from "./src/server";
 
 // --- Arg parsing ---
 
@@ -188,20 +188,9 @@ async function cmdServe(args: string[]) {
   const config = readConfig(chatDir);
   const { flags } = parseArgs(args);
   const port = parseInt(flags.port as string) || config.port || 4321;
-
-  // スタンバイモードはメンバー（upstream あり）が使う
-  if (flags.standby) {
-    if (!config.upstream) {
-      console.error("Error: --standby is for members only (upstream required).");
-      process.exit(1);
-    }
-    await startStandbyMode(chatDir, port);
-    return;
-  }
-
   // 通常の serve は owner のみ
   if (config.upstream) {
-    console.error("Error: 'serve' is for owners only. Use --standby for backup mode.");
+    console.error("Error: 'serve' is for owners only.");
     process.exit(1);
   }
 
@@ -1252,7 +1241,6 @@ Commands:
     --no-tunnel                   Skip tunnel (local only)
     --tunnel-name <name>          Use a named tunnel for fixed URL (requires Cloudflare login)
     --tunnel-hostname <host>      Hostname for named tunnel (e.g. chat.example.com)
-    --standby                     Monitor primary; auto-takeover if it goes down
   sync                            Pull latest from upstream
 
   send <channel> <message>        Send a message

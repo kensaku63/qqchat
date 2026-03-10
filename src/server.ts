@@ -1,6 +1,6 @@
 import { networkInterfaces } from "node:os";
 import { openDb, getAllMessages, getMessagesSince, insertMessage, insertMessages, createChannel, ensureChannel, getChannels, generateId, ensureMember, getMembers, rebuildMembers, resolveThreadRoot, getThread, getTasks, getMemories, getSummaries, getAgentConfigs, getChannelConfigs, type Message } from "./db";
-import { readConfig, readSyncCursor } from "./config";
+import { readConfig } from "./config";
 import webHtml from "../web/index.html" with { type: "text" };
 
 function getLocalIp(): string {
@@ -324,85 +324,6 @@ export function startServer(chatDir: string, port: number) {
   console.log(`  LAN:    http://${localIp}:${port}`);
 
   return server;
-}
-
-// Primary復帰時にBackupのDBから差分をPrimaryへマージする
-async function mergeToUpstream(chatDir: string, primaryUrl: string, sinceCursor: string): Promise<void> {
-  const db = openDb(chatDir);
-  const messages = sinceCursor ? getMessagesSince(db, sinceCursor) : getAllMessages(db);
-  const channels = getChannels(db);
-  db.close();
-
-  if (messages.length === 0) return;
-
-  try {
-    const res = await fetch(`${primaryUrl}/api/merge`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, channels }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (res.ok) {
-      const data = await res.json() as { merged: number };
-      console.log(`  Primaryへ ${data.merged} 件のメッセージをマージしました`);
-    }
-  } catch (e) {
-    console.error("  Primaryへのマージに失敗しました:", (e as Error).message);
-  }
-}
-
-// スタンバイモード: Primaryを監視し、落ちたら自動でサーバーを引き継ぐ
-export async function startStandbyMode(chatDir: string, port: number): Promise<void> {
-  const config = readConfig(chatDir);
-
-  if (!config.upstream) {
-    console.error("Error: スタンバイモードには upstream の設定が必要です。");
-    process.exit(1);
-  }
-
-  const primaryUrl: string = config.upstream;
-
-  console.log(`スタンバイモード: ${primaryUrl} を監視中`);
-  console.log(`  Primaryが落ちた場合、ポート ${port} でサーバーを起動します`);
-  console.log("Ctrl+C で終了\n");
-
-  let failCount = 0;
-  let standbyServer: ReturnType<typeof startServer> | null = null;
-  let outageStartCursor = "";
-
-  async function checkPrimary() {
-    try {
-      const res = await fetch(`${primaryUrl}/api/info`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        if (standbyServer) {
-          // Primary復帰 → マージしてスタンバイサーバー停止
-          console.log("\nPrimaryが復帰しました。差分をマージしてスタンバイサーバーを停止します...");
-          await mergeToUpstream(chatDir, primaryUrl, outageStartCursor);
-          standbyServer.stop();
-          standbyServer = null;
-          outageStartCursor = "";
-          console.log("スタンバイモードに戻りました。Primaryを監視中...\n");
-        }
-        failCount = 0;
-        return;
-      }
-    } catch {}
-
-    failCount++;
-    if (!standbyServer) {
-      process.stdout.write(`\rPrimaryに接続できません (${failCount}/3)...`);
-    }
-
-    if (failCount >= 3 && !standbyServer) {
-      console.log("\nPrimaryがダウンしました！スタンバイサーバーを起動します...");
-      // 障害発生直前のカーソルを記録（後でマージ範囲に使う）
-      outageStartCursor = readSyncCursor(chatDir);
-      standbyServer = startServer(chatDir, port);
-    }
-  }
-
-  setInterval(checkPrimary, 5000);
-  await new Promise(() => {});  // 永続実行
 }
 
 // Owner起動時にbackup_ownersから差分をマージする
