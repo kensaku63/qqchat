@@ -87,7 +87,7 @@ export function startServer(chatDir: string, port: number) {
 
       // POST /api/agents
       if (path === "/api/agents" && req.method === "POST") {
-        let body: { name: string; role?: string; prompt?: string; description?: string; channels?: string[] };
+        let body: { name: string; role?: string; prompt?: string; description?: string; channels?: string[]; icon?: string };
         try { body = await req.json() as typeof body; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400, headers }); }
         if (!body.name) return Response.json({ error: "name is required" }, { status: 400, headers });
         const existing = getAgentConfigs(db)[body.name];
@@ -97,6 +97,7 @@ export function startServer(chatDir: string, port: number) {
           prompt: body.prompt ?? existing?.prompt ?? "",
           description: body.description || existing?.description || "",
           channels: body.channels || existing?.channels || [],
+          icon: body.icon ?? existing?.icon ?? "",
         };
         insertMessage(db, {
           id: generateId(),

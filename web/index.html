@@ -250,6 +250,7 @@
 
     .msg-avatar.agent { background: var(--agent-avatar); }
     .msg-avatar.human { background: var(--human-avatar); }
+    .msg-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 
     .msg-body { flex: 1; min-width: 0; }
 
@@ -783,6 +784,7 @@
       justify-content: center;
       flex-shrink: 0;
     }
+    .agent-panel-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 
     /* Agent activity stats */
     .agent-activity {
@@ -1755,10 +1757,11 @@
       let agent = isAgent(msg.author);
 
       // Avatar
-      let avatar = el('div', { className: 'msg-avatar ' + (agent ? 'agent' : 'human') }, [
-        getInitials(msg.author)
-      ]);
-      if (agent) {
+      let agentIcon = agent ? (state.agents[getDisplayName(msg.author)]?.icon || '') : '';
+      let avatar = el('div', { className: 'msg-avatar ' + (agent ? 'agent' : 'human') },
+        agentIcon ? [el('img', { src: agentIcon, alt: getDisplayName(msg.author) })] : [getInitials(msg.author)]
+      );
+      if (agent && !agentIcon) {
         let roleColor = getAgentRoleColor(msg.author);
         if (roleColor) avatar.style.background = roleColor;
       }
@@ -2444,8 +2447,10 @@
         let name = entry[0], info = entry[1];
         let channelsText = (info.channels || []).map(function(c) { return '#' + c; }).join(' ');
 
-        let avatar = el('div', { className: 'agent-panel-avatar' }, [name.slice(0, 2).toUpperCase()]);
-        avatar.style.background = getRoleColor(info.role);
+        let avatar = el('div', { className: 'agent-panel-avatar' },
+          info.icon ? [el('img', { src: info.icon, alt: name })] : [name.slice(0, 2).toUpperCase()]
+        );
+        if (!info.icon) avatar.style.background = getRoleColor(info.role);
 
         let cardBody = el('div', { className: 'card-body' });
 

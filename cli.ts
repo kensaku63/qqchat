@@ -813,7 +813,7 @@ async function cmdAgent(args: string[]) {
     const { positional, flags } = parseArgs(subArgs);
     const name = positional.join(" ");
     if (!name) {
-      console.error("Usage: chat agent create <name> [--role <role>] [--prompt \"...\"] [--channels ch1,ch2] [--description \"...\"]");
+      console.error("Usage: chat agent create <name> [--role <role>] [--prompt \"...\"] [--channels ch1,ch2] [--description \"...\"] [--icon <path>]");
       process.exit(1);
     }
 
@@ -823,6 +823,7 @@ async function cmdAgent(args: string[]) {
     const prompt = (flags.prompt as string) || "";
     const description = (flags.description as string) || "";
     const channels = flags.channels ? (flags.channels as string).split(",") : [];
+    const icon = (flags.icon as string) || "";
 
     if (config.upstream) {
       const urls = getUpstreamUrls(config);
@@ -832,7 +833,7 @@ async function cmdAgent(args: string[]) {
           const res = await fetch(`${url}/api/agents`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, role, prompt, description, channels }),
+            body: JSON.stringify({ name, role, prompt, description, channels, icon }),
             signal: AbortSignal.timeout(5000),
           });
           if (res.ok) { sent = true; break; }
@@ -840,7 +841,7 @@ async function cmdAgent(args: string[]) {
       }
       if (!sent) { console.error("Error: Failed to register agent on upstream"); process.exit(1); }
     } else {
-      const metadata = JSON.stringify({ agent_config: { name, role, prompt, description, channels } });
+      const metadata = JSON.stringify({ agent_config: { name, role, prompt, description, channels, icon } });
       await sendToUpstream(chatDir, "_system", config.identity, `Register agent: ${name}`, undefined, metadata);
     }
     console.log(`Agent registered: ${name} (${role || "no role"})`);
@@ -876,6 +877,59 @@ async function cmdAgent(args: string[]) {
       return;
     }
     console.log(JSON.stringify(agents, null, 2));
+
+  } else if (sub === "update") {
+    const { positional, flags } = parseArgs(subArgs);
+    const name = positional.join(" ");
+    if (!name) {
+      console.error("Usage: chat agent update <name> [--role <role>] [--prompt \"...\"] [--channels ch1,ch2] [--description \"...\"] [--icon <path>]");
+      process.exit(1);
+    }
+
+    const chatDir = requireChatDir();
+    const config = readConfig(chatDir);
+
+    // Build update object with only specified flags
+    const update: Record<string, unknown> = { name };
+    if (flags.role !== undefined) update.role = flags.role as string;
+    if (flags.prompt !== undefined) update.prompt = flags.prompt as string;
+    if (flags.description !== undefined) update.description = flags.description as string;
+    if (flags.channels !== undefined) update.channels = (flags.channels as string).split(",");
+    if (flags.icon !== undefined) update.icon = flags.icon as string;
+
+    if (config.upstream) {
+      const urls = getUpstreamUrls(config);
+      let sent = false;
+      for (const url of urls) {
+        try {
+          const res = await fetch(`${url}/api/agents`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(update),
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.ok) { sent = true; break; }
+        } catch { continue; }
+      }
+      if (!sent) { console.error("Error: Failed to update agent on upstream"); process.exit(1); }
+    } else {
+      // Local: read existing config and merge
+      const db = openDb(chatDir);
+      const existing = getAgentConfigs(db)[name];
+      db.close();
+      if (!existing) { console.error(`Error: Agent "${name}" not found`); process.exit(1); }
+      const merged = {
+        name,
+        role: (update.role as string) ?? existing.role,
+        prompt: (update.prompt as string) ?? existing.prompt,
+        description: (update.description as string) ?? existing.description,
+        channels: (update.channels as string[]) ?? existing.channels,
+        icon: (update.icon as string) ?? existing.icon ?? "",
+      };
+      const metadata = JSON.stringify({ agent_config: merged });
+      await sendToUpstream(chatDir, "_system", config.identity, `Update agent: ${name}`, undefined, metadata);
+    }
+    console.log(`Agent updated: ${name}`);
 
   } else if (sub === "remove") {
     const { positional } = parseArgs(subArgs);
@@ -1278,6 +1332,9 @@ Commands:
     --role <role>                 Agent role (e.g. builder, reviewer)
     --prompt "..."                System prompt for the agent
     --channels ch1,ch2            Assigned channels
+    --icon <path>                 Path to icon image (stored as-is)
+  agent update <name>             Update agent fields (only specified fields change)
+    --role / --prompt / --channels / --description / --icon
   agent list                      List registered agents
   agent remove <name>             Remove an agent
 

@@ -401,6 +401,7 @@ export interface AgentConfigData {
   prompt: string;
   description: string;
   channels: string[];
+  icon?: string;
   removed?: boolean;
 }
 
@@ -430,6 +431,7 @@ export function getAgentConfigs(db: Database): Record<string, AgentConfigData> {
           prompt: cfg.prompt || "",
           description: cfg.description || "",
           channels: cfg.channels || [],
+          icon: cfg.icon || "",
         };
       }
     } catch {}
